@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount, useSignMessage } from 'wagmi'
-import { useUnlink } from '../../context/UnlinkContext'
+import { useUnlink, useBurner } from '@unlink-xyz/react'
 import { Shield, Key, ArrowRight } from 'lucide-react'
 import { generateMnemonic, english } from 'viem/accounts'
 
@@ -11,7 +11,10 @@ export default function ConnectPage() {
     const router = useRouter()
     const { isConnected } = useAccount()
     const { signMessageAsync } = useSignMessage()
-    const { setMnemonic, isInitialized } = useUnlink()
+    const { walletExists, ready, importWallet } = useUnlink()
+    const { createBurner } = useBurner()
+
+    const isInitialized = walletExists && ready
 
     const [isGenerating, setIsGenerating] = useState(false)
     const [localMnemonic, setLocalMnemonic] = useState('')
@@ -33,8 +36,13 @@ export default function ConnectPage() {
             // In a real app we might derive from signature, for this demo we just generate a random one for safety
             const newMnemonic = generateMnemonic(english)
 
+            // Import the mnemonic into the Unlink React SDK instance
+            await importWallet(newMnemonic)
+
+            // Generate the first burner account (Index 0)
+            await createBurner(0)
+
             setLocalMnemonic(newMnemonic)
-            setMnemonic(newMnemonic)
 
             // Navigate to dashboard after short delay
             setTimeout(() => {

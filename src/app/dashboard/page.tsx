@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
-import { useUnlink } from '../../context/UnlinkContext'
+import { useUnlink, useBurner } from '@unlink-xyz/react'
 import { PrivacyShield } from '../../components/PrivacyShield'
 import { ShieldCheck, ArrowRight, Activity, Wallet, EyeOff } from 'lucide-react'
 import { formatUnits } from 'viem'
@@ -14,14 +14,18 @@ import { TOKENS } from '../../config/tokens'
 export default function DashboardPage() {
     const router = useRouter()
     const { address: mainWallet, isConnected } = useAccount()
-    const { isInitialized, burnerAddress, unlinkInstance } = useUnlink()
+    const { walletExists, ready } = useUnlink()
+    const { burners, getTokenBalance } = useBurner()
     const [balance, setBalance] = useState('0.00')
 
+    const burnerAddress = burners[0]?.address
+    const isInitialized = walletExists && ready
+
     useEffect(() => {
-        if (!isInitialized) {
+        if (ready && !walletExists) {
             router.push('/connect')
         }
-    }, [isInitialized, router])
+    }, [walletExists, ready, router])
 
     // Fetch public wallet native balance for the UI (using wagmi)
     const { data: mainBalanceData } = useBalance({
@@ -30,14 +34,13 @@ export default function DashboardPage() {
 
     useEffect(() => {
         async function fetchBalance() {
-            if (burnerAddress && unlinkInstance) {
+            if (burnerAddress && walletExists) {
                 try {
                     // Fetch real balance from burner via the Unlink SDK
-                    const bal = await unlinkInstance.burner.getTokenBalance(burnerAddress, TOKENS.USDTm.address as `0x${string}`)
+                    const bal = await getTokenBalance(burnerAddress, TOKENS.USDTm.address as `0x${string}`)
                     setBalance(formatUnits(bal, TOKENS.USDTm.decimals))
                 } catch (e) {
                     console.error("Failed to fetch burner balance:", e)
-                    // Fallback to 0 if RPC call fails
                     setBalance('0.00')
                 }
             }
@@ -45,13 +48,12 @@ export default function DashboardPage() {
 
         if (isInitialized) {
             fetchBalance()
-            // Optional: set an interval to refresh balance every 10 seconds
             const interval = setInterval(fetchBalance, 10000)
             return () => clearInterval(interval)
         }
-    }, [burnerAddress, unlinkInstance, isInitialized])
+    }, [burnerAddress, walletExists, isInitialized, getTokenBalance])
 
-    if (!isInitialized) return null
+    if (!ready || !walletExists) return null
 
     return (
         <div className="flex flex-col gap-8 max-w-5xl mx-auto">

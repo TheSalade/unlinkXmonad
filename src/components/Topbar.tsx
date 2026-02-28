@@ -1,7 +1,7 @@
 'use client'
 
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
-import { useUnlink } from '../context/UnlinkContext'
+import { useUnlink, useBurner } from '@unlink-xyz/react'
 import { Shield, ShieldAlert, Wallet } from 'lucide-react'
 import { injected } from 'wagmi/connectors'
 
@@ -9,7 +9,11 @@ export function Topbar() {
     const { address, isConnected } = useAccount()
     const { connect } = useConnect()
     const { disconnect } = useDisconnect()
-    const { isInitialized, burnerAddress } = useUnlink()
+    const { walletExists, ready } = useUnlink()
+    const { burners } = useBurner()
+
+    const isInitialized = walletExists && ready
+    const burnerAddress = burners[0]?.address
 
     const truncate = (str: string) => str.slice(0, 6) + '...' + str.slice(-4)
 
