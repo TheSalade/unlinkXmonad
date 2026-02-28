@@ -13,7 +13,7 @@ import { TOKENS } from '../../config/tokens'
 
 export default function DashboardPage() {
     const router = useRouter()
-    const { address: mainWallet, isConnected } = useAccount()
+    const { address: mainWallet } = useAccount()
     const { walletExists, ready } = useUnlink()
     const { burners, getTokenBalance } = useBurner()
     const [balance, setBalance] = useState('0.00')

@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { useUnlink, useBurner } from '@unlink-xyz/react'
 import { Shield, ShieldAlert, Wallet } from 'lucide-react'
@@ -11,6 +12,12 @@ export function Topbar() {
     const { disconnect } = useDisconnect()
     const { walletExists, ready } = useUnlink()
     const { burners } = useBurner()
+    const [mounted, setMounted] = useState(false)
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setMounted(true)
+    }, [])
 
     const isInitialized = walletExists && ready
     const burnerAddress = burners[0]?.address
@@ -23,35 +30,39 @@ export function Topbar() {
             </div>
 
             <div className="flex items-center gap-4">
-                {/* Unlink Shield Status */}
-                <div className="flex items-center gap-3 px-4 py-2 rounded-full border border-white/10 bg-white/5">
-                    {isInitialized ? (
-                        <>
-                            <Shield className="w-4 h-4 text-emerald-400" />
-                            <div className="flex flex-col">
-                                <span className="text-xs text-emerald-400 font-medium tracking-wider">SHIELD ACTIVE</span>
-                                <span className="text-[10px] text-zinc-500">Burner: {burnerAddress ? truncate(burnerAddress) : 'Loading...'}</span>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <ShieldAlert className="w-4 h-4 text-rose-400" />
-                            <div className="flex flex-col">
-                                <span className="text-xs text-rose-400 font-medium tracking-wider">UNPROTECTED</span>
-                                <span className="text-[10px] text-zinc-500">No Privacy Pool</span>
-                            </div>
-                        </>
-                    )}
-                </div>
+                {mounted && (
+                    <>
+                        {/* Unlink Shield Status */}
+                        <div className="flex items-center gap-3 px-4 py-2 rounded-full border border-white/10 bg-white/5">
+                            {isInitialized ? (
+                                <>
+                                    <Shield className="w-4 h-4 text-emerald-400" />
+                                    <div className="flex flex-col">
+                                        <span className="text-xs text-emerald-400 font-medium tracking-wider">SHIELD ACTIVE</span>
+                                        <span className="text-[10px] text-zinc-500">Burner: {burnerAddress ? truncate(burnerAddress) : 'Loading...'}</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <ShieldAlert className="w-4 h-4 text-rose-400" />
+                                    <div className="flex flex-col">
+                                        <span className="text-xs text-rose-400 font-medium tracking-wider">UNPROTECTED</span>
+                                        <span className="text-[10px] text-zinc-500">No Privacy Pool</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
 
-                {/* Wallet Connect */}
-                <button
-                    onClick={() => isConnected ? disconnect() : connect({ connector: injected() })}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-black font-semibold hover:bg-zinc-200 transition-colors shadow-[0_0_15px_rgba(255,255,255,0.1)]"
-                >
-                    <Wallet className="w-4 h-4" />
-                    {isConnected && address ? truncate(address) : 'Connect Wallet'}
-                </button>
+                        {/* Wallet Connect */}
+                        <button
+                            onClick={() => isConnected ? disconnect() : connect({ connector: injected() })}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-black font-semibold hover:bg-zinc-200 transition-colors shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+                        >
+                            <Wallet className="w-4 h-4" />
+                            {isConnected && address ? truncate(address) : 'Connect Wallet'}
+                        </button>
+                    </>
+                )}
             </div>
         </header>
     )

@@ -28,10 +28,8 @@ export default function ConnectPage() {
                 return
             }
 
-            // We sign a message with the main wallet to deterministic generate a mnemonic
-            // Wait, let's just use viem to generate a random one for this demo, 
             // or sign a message to make it deterministic.
-            const signature = await signMessageAsync({ message: "Welcome to Unlink Private DeFi. Sign this message to generate your in-memory privacy key." })
+            await signMessageAsync({ message: "Welcome to Unlink Private DeFi. Sign this message to generate your in-memory privacy key." })
 
             // In a real app we might derive from signature, for this demo we just generate a random one for safety
             const newMnemonic = generateMnemonic(english)
