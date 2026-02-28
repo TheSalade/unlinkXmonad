@@ -6,13 +6,15 @@ import { useAccount } from 'wagmi'
 import { useUnlink } from '../../context/UnlinkContext'
 import { PrivacyShield } from '../../components/PrivacyShield'
 import { ShieldCheck, ArrowRight, Activity, Wallet, EyeOff } from 'lucide-react'
+import { formatUnits } from 'viem'
+import { useBalance } from 'wagmi'
 
 import { TOKENS } from '../../config/tokens'
 
 export default function DashboardPage() {
     const router = useRouter()
     const { address: mainWallet, isConnected } = useAccount()
-    const { isInitialized, burnerAddress } = useUnlink()
+    const { isInitialized, burnerAddress, unlinkInstance } = useUnlink()
     const [balance, setBalance] = useState('0.00')
 
     useEffect(() => {
@@ -21,23 +23,33 @@ export default function DashboardPage() {
         }
     }, [isInitialized, router])
 
+    // Fetch public wallet native balance for the UI (using wagmi)
+    const { data: mainBalanceData } = useBalance({
+        address: mainWallet,
+    })
+
     useEffect(() => {
         async function fetchBalance() {
-            if (burnerAddress) {
+            if (burnerAddress && unlinkInstance) {
                 try {
-                    // In a real scenario, use unlink.burner.getTokenBalance
-                    // const bal = await unlink.burner.getTokenBalance(burnerAddress, TOKENS.USDTm)
-                    // setBalance(formatUnits(bal, 6))
-
-                    // Mocking balance for the visual
-                    setBalance('1,250.00')
+                    // Fetch real balance from burner via the Unlink SDK
+                    const bal = await unlinkInstance.burner.getTokenBalance(burnerAddress, TOKENS.USDTm)
+                    setBalance(formatUnits(bal, 6))
                 } catch (e) {
-                    console.error(e)
+                    console.error("Failed to fetch burner balance:", e)
+                    // Fallback to 0 if RPC call fails
+                    setBalance('0.00')
                 }
             }
         }
-        fetchBalance()
-    }, [burnerAddress])
+
+        if (isInitialized) {
+            fetchBalance()
+            // Optional: set an interval to refresh balance every 10 seconds
+            const interval = setInterval(fetchBalance, 10000)
+            return () => clearInterval(interval)
+        }
+    }, [burnerAddress, unlinkInstance, isInitialized])
 
     if (!isInitialized) return null
 
@@ -65,8 +77,10 @@ export default function DashboardPage() {
                     <p className="text-sm text-zinc-500 mb-6">Visible on block explorers</p>
 
                     <div className="flex items-center justify-between p-4 rounded-xl bg-black/40 border border-white/5">
-                        <span className="text-zinc-400">Status</span>
-                        <span className="text-zinc-300 font-medium">Funding Source</span>
+                        <span className="text-zinc-400">Balance</span>
+                        <span className="text-zinc-300 font-medium">
+                            {mainBalanceData ? parseFloat(formatUnits(mainBalanceData.value, mainBalanceData.decimals)).toFixed(4) : '0.00'} MON
+                        </span>
                     </div>
                 </div>
 

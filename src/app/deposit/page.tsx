@@ -3,11 +3,26 @@
 import { useState } from 'react'
 import { PrivacyShield } from '../../components/PrivacyShield'
 import { ArrowDownToLine, RefreshCw, ShieldPlus, ChevronDown } from 'lucide-react'
+import { useAccount, useReadContract } from 'wagmi'
+import { TOKENS } from '../../config/tokens'
+import { formatUnits, parseUnits } from 'viem'
+import { erc20Abi } from 'viem'
 
 export default function DepositPage() {
+    const { address } = useAccount()
     const [amount, setAmount] = useState('0')
     const [isDepositing, setIsDepositing] = useState(false)
     const [isFundingBurner, setIsFundingBurner] = useState(false)
+
+    // Fetch USDTm balance of the public wallet
+    const { data: usdtmBalance } = useReadContract({
+        address: TOKENS.USDTm,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: address ? [address] : undefined,
+    });
+
+    const formattedUsdtmBalance = usdtmBalance ? formatUnits(usdtmBalance, 6) : '0.00'
 
     const handleDeposit = () => {
         setIsDepositing(true)
@@ -49,7 +64,7 @@ export default function DepositPage() {
                     <div className="mb-8 p-6 rounded-2xl bg-black/40 border border-white/5">
                         <div className="flex justify-between mb-2">
                             <span className="text-zinc-400 text-sm">Amount to shield</span>
-                            <span className="text-zinc-500 text-sm">Balance: 10,000.00</span>
+                            <span className="text-zinc-500 text-sm">Balance: {parseFloat(formattedUsdtmBalance).toFixed(2)}</span>
                         </div>
                         <div className="flex items-end pt-2">
                             <input
@@ -59,7 +74,12 @@ export default function DepositPage() {
                                 className="bg-transparent text-4xl font-mono font-bold text-white outline-none w-full"
                                 placeholder="0.00"
                             />
-                            <button className="text-blue-400 text-sm font-bold hover:text-blue-300">MAX</button>
+                            <button
+                                onClick={() => setAmount(formattedUsdtmBalance)}
+                                className="text-blue-400 text-sm font-bold hover:text-blue-300"
+                            >
+                                MAX
+                            </button>
                         </div>
                     </div>
 
