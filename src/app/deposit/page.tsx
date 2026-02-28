@@ -7,6 +7,7 @@ import { useAccount, useReadContract } from 'wagmi'
 import { TOKENS } from '../../config/tokens'
 import { formatUnits, parseUnits } from 'viem'
 import { erc20Abi } from 'viem'
+import { useDeposit } from '@unlink-xyz/react'
 
 export default function DepositPage() {
     const { address } = useAccount()
@@ -34,9 +35,33 @@ export default function DepositPage() {
 
     const formattedBalance = balanceData ? formatUnits(balanceData, decimals) : '0.00'
 
-    const handleDeposit = () => {
+    // Unlink Deposit Hook
+    const { deposit, isPending: isUnlinkDepositing } = useDeposit()
+
+    const handleDeposit = async () => {
         setIsDepositing(true)
-        setTimeout(() => setIsDepositing(false), 2000)
+        try {
+            if (!address) throw new Error("Wallet not connected")
+            if (!amount || Number(amount) <= 0) throw new Error("Invalid amount")
+
+            const amountBigInt = parseUnits(amount, decimals)
+
+            // Execute the deposit to the shielded pool
+            await deposit([{
+                token: TOKENS[selectedToken].address as `0x${string}`,
+                amount: amountBigInt,
+                depositor: address
+            }])
+
+            // Clear input on success
+            setAmount('0')
+            // Add a slight delay for UI feedback
+            setTimeout(() => setIsDepositing(false), 1000)
+
+        } catch (error) {
+            console.error("Deposit failed:", error)
+            setIsDepositing(false)
+        }
     }
 
     const handleFundBurner = () => {
@@ -125,10 +150,10 @@ export default function DepositPage() {
 
                     <button
                         onClick={handleDeposit}
-                        disabled={isDepositing || amount === '0' || amount === ''}
+                        disabled={isDepositing || isUnlinkDepositing || amount === '0' || amount === ''}
                         className="w-full flex justify-center items-center gap-2 px-6 py-4 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-500 transition-all disabled:opacity-50"
                     >
-                        {isDepositing ? <><RefreshCw className="w-5 h-5 animate-spin" /> Shielding...</> : <><ShieldPlus className="w-5 h-5" /> Shield to Privacy Pool</>}
+                        {(isDepositing || isUnlinkDepositing) ? <><RefreshCw className="w-5 h-5 animate-spin" /> Shielding...</> : <><ShieldPlus className="w-5 h-5" /> Shield to Privacy Pool</>}
                     </button>
                 </div>
 
