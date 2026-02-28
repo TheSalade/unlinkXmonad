@@ -18,8 +18,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} bg-black text-white antialiased selection:bg-emerald-500/30 min-h-screen overflow-x-hidden`}>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className={`${inter.className} bg-black text-white antialiased selection:bg-emerald-500/30 min-h-screen overflow-x-hidden`} suppressHydrationWarning>
         {/* Abstract background blobs for premium aesthetic */}
         <div className="fixed inset-0 z-[-1] pointer-events-none">
           <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-emerald-900/40 rounded-full blur-[120px]" />

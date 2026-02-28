@@ -11,7 +11,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return (
         <WagmiProvider config={config}>
             <QueryClientProvider client={queryClient}>
-                <UnlinkReactProvider chain="monad-testnet-staging" autoSync={true}>
+                <UnlinkReactProvider chain="monad-testnet" autoSync={true}>
                     {children}
                 </UnlinkReactProvider>
             </QueryClientProvider>

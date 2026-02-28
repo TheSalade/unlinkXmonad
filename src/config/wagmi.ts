@@ -8,6 +8,6 @@ export const config = createConfig({
     injected(),
   ],
   transports: {
-    [monadTestnet.id]: http(),
+    [monadTestnet.id]: http('https://monad-testnet.drpc.org'),
   },
 })
