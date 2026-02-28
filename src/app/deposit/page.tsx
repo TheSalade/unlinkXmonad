@@ -13,16 +13,26 @@ export default function DepositPage() {
     const [amount, setAmount] = useState('0')
     const [isDepositing, setIsDepositing] = useState(false)
     const [isFundingBurner, setIsFundingBurner] = useState(false)
+    const [selectedToken, setSelectedToken] = useState<keyof typeof TOKENS>('USDTm')
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
-    // Fetch USDTm balance of the public wallet
-    const { data: usdtmBalance } = useReadContract({
-        address: TOKENS.USDTm,
+    const tokenDetails = {
+        USDTm: { name: 'Tether USD (Testnet)', symbol: 'U', color: 'bg-emerald-500', text: 'text-emerald-500', bgFade: 'bg-emerald-500/20' },
+        USDCm: { name: 'USD Coin (Testnet)', symbol: 'C', color: 'bg-blue-500', text: 'text-blue-500', bgFade: 'bg-blue-500/20' },
+        ULNKm: { name: 'Unlink Native Token', symbol: 'L', color: 'bg-indigo-500', text: 'text-indigo-500', bgFade: 'bg-indigo-500/20' },
+    }
+
+    const decimals = selectedToken === 'ULNKm' ? 18 : 6
+
+    // Fetch balance of the selected token for the public wallet
+    const { data: balanceData } = useReadContract({
+        address: TOKENS[selectedToken],
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: address ? [address] : undefined,
     });
 
-    const formattedUsdtmBalance = usdtmBalance ? formatUnits(usdtmBalance, 6) : '0.00'
+    const formattedBalance = balanceData ? formatUnits(balanceData, decimals) : '0.00'
 
     const handleDeposit = () => {
         setIsDepositing(true)
@@ -50,21 +60,51 @@ export default function DepositPage() {
                         <h2 className="text-xl font-bold">Shield Assets</h2>
                     </div>
 
-                    <div className="mb-6 p-4 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between hover:border-white/20 transition-colors cursor-pointer">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-white">U</div>
-                            <div>
-                                <p className="font-bold">USDTm</p>
-                                <p className="text-xs text-zinc-500">Tether USD (Testnet)</p>
+                    <div className="relative mb-6">
+                        <div
+                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                            className="p-4 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between hover:border-white/20 transition-colors cursor-pointer"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full ${tokenDetails[selectedToken].color} flex items-center justify-center font-bold text-white`}>
+                                    {tokenDetails[selectedToken].symbol}
+                                </div>
+                                <div>
+                                    <p className="font-bold">{selectedToken}</p>
+                                    <p className="text-xs text-zinc-500">{tokenDetails[selectedToken].name}</p>
+                                </div>
                             </div>
+                            <ChevronDown className={`w-5 h-5 text-zinc-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                         </div>
-                        <ChevronDown className="w-5 h-5 text-zinc-500" />
+
+                        {isDropdownOpen && (
+                            <div className="absolute top-full left-0 right-0 mt-2 p-2 rounded-2xl bg-zinc-900 border border-white/10 shadow-2xl z-20 flex flex-col gap-1">
+                                {(Object.keys(tokenDetails) as Array<keyof typeof TOKENS>).map((tKey) => (
+                                    <div
+                                        key={tKey}
+                                        onClick={() => {
+                                            setSelectedToken(tKey)
+                                            setIsDropdownOpen(false)
+                                        }}
+                                        className={`p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-colors ${selectedToken === tKey ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                                    >
+                                        <div className={`w-8 h-8 rounded-full ${tokenDetails[tKey].color} flex items-center justify-center font-bold text-white text-sm`}>
+                                            {tokenDetails[tKey].symbol}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-sm">{tKey}</p>
+                                            <p className="text-xs text-zinc-500">{tokenDetails[tKey].name}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="mb-8 p-6 rounded-2xl bg-black/40 border border-white/5">
                         <div className="flex justify-between mb-2">
                             <span className="text-zinc-400 text-sm">Amount to shield</span>
-                            <span className="text-zinc-500 text-sm">Balance: {parseFloat(formattedUsdtmBalance).toFixed(2)}</span>
+                            <span className="text-zinc-500 text-sm">Balance: {parseFloat(formattedBalance).toFixed(4)}</span>
                         </div>
                         <div className="flex items-end pt-2">
                             <input
@@ -75,7 +115,7 @@ export default function DepositPage() {
                                 placeholder="0.00"
                             />
                             <button
-                                onClick={() => setAmount(formattedUsdtmBalance)}
+                                onClick={() => setAmount(formattedBalance)}
                                 className="text-blue-400 text-sm font-bold hover:text-blue-300"
                             >
                                 MAX
