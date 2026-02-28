@@ -40,8 +40,8 @@ export default function SweepPage() {
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center font-bold">U</div>
                             <div>
-                                <p className="font-bold">USDT</p>
-                                <p className="text-xs text-zinc-500">Tether USD</p>
+                                <p className="font-bold">USDTm</p>
+                                <p className="text-xs text-zinc-500">Tether USD (Testnet)</p>
                             </div>
                         </div>
                         <div className="text-right">
@@ -54,8 +54,8 @@ export default function SweepPage() {
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center font-bold">W</div>
                             <div>
-                                <p className="font-bold">WETH</p>
-                                <p className="text-xs text-zinc-500">Wrapped Ether</p>
+                                <p className="font-bold">ULNKm</p>
+                                <p className="text-xs text-zinc-500">Unlink Native Token</p>
                             </div>
                         </div>
                         <div className="text-right">

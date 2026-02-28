@@ -7,8 +7,7 @@ import { useUnlink } from '../../context/UnlinkContext'
 import { PrivacyShield } from '../../components/PrivacyShield'
 import { ShieldCheck, ArrowRight, Activity, Wallet, EyeOff } from 'lucide-react'
 
-// Mock token address for Monad testnet
-const MOCK_USDT = "0x0000000000000000000000000000000000000000"
+import { TOKENS } from '../../config/tokens'
 
 export default function DashboardPage() {
     const router = useRouter()
@@ -27,7 +26,7 @@ export default function DashboardPage() {
             if (burnerAddress) {
                 try {
                     // In a real scenario, use unlink.burner.getTokenBalance
-                    // const bal = await unlink.burner.getTokenBalance(burnerAddress, MOCK_USDT)
+                    // const bal = await unlink.burner.getTokenBalance(burnerAddress, TOKENS.USDTm)
                     // setBalance(formatUnits(bal, 6))
 
                     // Mocking balance for the visual
@@ -86,7 +85,7 @@ export default function DashboardPage() {
                     <p className="text-sm text-emerald-500/70 mb-6">Hidden from your main identity</p>
 
                     <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/20">
-                        <span className="text-emerald-400/80">Available USDT</span>
+                        <span className="text-emerald-400/80">Available USDTm</span>
                         <span className="text-emerald-400 font-bold text-xl">${balance}</span>
                     </div>
                 </div>
@@ -103,7 +102,7 @@ export default function DashboardPage() {
                         <div className="flex justify-between items-start mb-8">
                             <div>
                                 <h3 className="text-xl font-bold text-white mb-1">Aave v3</h3>
-                                <p className="text-zinc-400 text-sm">Supplied USDT</p>
+                                <p className="text-zinc-400 text-sm">Supplied USDTm</p>
                             </div>
                             <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center">
                                 <ShieldCheck className="w-5 h-5 text-cyan-400" />
@@ -122,7 +121,7 @@ export default function DashboardPage() {
                         <div className="flex justify-between items-start mb-8">
                             <div>
                                 <h3 className="text-xl font-bold text-white mb-1">Uniswap V3</h3>
-                                <p className="text-zinc-400 text-sm">WETH/USDC LP</p>
+                                <p className="text-zinc-400 text-sm">USDCm/ULNKm LP</p>
                             </div>
                             <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center">
                                 <ShieldCheck className="w-5 h-5 text-pink-400" />

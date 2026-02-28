@@ -39,8 +39,8 @@ export default function DepositPage() {
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-white">U</div>
                             <div>
-                                <p className="font-bold">USDT</p>
-                                <p className="text-xs text-zinc-500">Tether USD</p>
+                                <p className="font-bold">USDTm</p>
+                                <p className="text-xs text-zinc-500">Tether USD (Testnet)</p>
                             </div>
                         </div>
                         <ChevronDown className="w-5 h-5 text-zinc-500" />

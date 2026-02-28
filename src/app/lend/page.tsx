@@ -28,7 +28,7 @@ export default function LendPage() {
                         <Landmark className="w-6 h-6 text-cyan-400" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold">Supply USDT</h2>
+                        <h2 className="text-2xl font-bold">Supply USDTm</h2>
                         <p className="text-emerald-400 font-medium">+4.20% Variable APY</p>
                     </div>
                 </div>
@@ -46,7 +46,7 @@ export default function LendPage() {
                             className="bg-transparent text-5xl font-mono font-bold text-white outline-none w-full"
                             placeholder="0.00"
                         />
-                        <span className="text-2xl font-bold text-zinc-600 mb-1">USDT</span>
+                        <span className="text-2xl font-bold text-zinc-600 mb-1">USDTm</span>
                     </div>
                 </div>
 

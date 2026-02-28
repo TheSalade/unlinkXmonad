@@ -44,7 +44,7 @@ export default function SwapPage() {
                         />
                         <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 transition-colors shrink-0 font-bold">
                             <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-xs text-white">U</div>
-                            USDT
+                            USDTm
                         </button>
                     </div>
                 </div>
@@ -69,7 +69,7 @@ export default function SwapPage() {
                         />
                         <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors shrink-0 font-bold">
                             <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs text-white">E</div>
-                            WETH
+                            ULNKm
                         </button>
                     </div>
                 </div>
