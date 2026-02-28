@@ -33,8 +33,8 @@ export default function DashboardPage() {
             if (burnerAddress && unlinkInstance) {
                 try {
                     // Fetch real balance from burner via the Unlink SDK
-                    const bal = await unlinkInstance.burner.getTokenBalance(burnerAddress, TOKENS.USDTm)
-                    setBalance(formatUnits(bal, 6))
+                    const bal = await unlinkInstance.burner.getTokenBalance(burnerAddress, TOKENS.USDTm.address as `0x${string}`)
+                    setBalance(formatUnits(bal, TOKENS.USDTm.decimals))
                 } catch (e) {
                     console.error("Failed to fetch burner balance:", e)
                     // Fallback to 0 if RPC call fails

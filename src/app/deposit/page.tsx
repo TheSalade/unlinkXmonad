@@ -22,11 +22,11 @@ export default function DepositPage() {
         ULNKm: { name: 'Unlink Native Token', symbol: 'L', color: 'bg-indigo-500', text: 'text-indigo-500', bgFade: 'bg-indigo-500/20' },
     }
 
-    const decimals = selectedToken === 'ULNKm' ? 18 : 6
+    const decimals = TOKENS[selectedToken].decimals
 
     // Fetch balance of the selected token for the public wallet
     const { data: balanceData } = useReadContract({
-        address: TOKENS[selectedToken],
+        address: TOKENS[selectedToken].address as `0x${string}`,
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: address ? [address] : undefined,
