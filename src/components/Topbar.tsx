@@ -24,7 +24,7 @@ export function Topbar() {
     const burnerAddress = burners[0]?.address
     const isRestoring = useRef(false)
 
-    // Auto-reconnect Unlink session from local storage on refresh
+    // Auto-reconnect Nullifier session from local storage on refresh
     useEffect(() => {
         const autoConnect = async () => {
             if (isInitialized || isRestoring.current) return
@@ -62,25 +62,25 @@ export function Topbar() {
     }
 
     return (
-        <header className="h-20 border-b border-white/10 bg-black/20 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-50">
+        <header className="h-20 border-b border-[#e0e0e0]/20 bg-[#0a0a0a] flex items-center justify-between px-8 sticky top-0 z-50">
             <div className="flex items-center gap-6">
             </div>
 
             <div className="flex items-center gap-4">
                 {mounted && (
                     <>
-                        {/* Unlink Shield Status */}
-                        <div className="flex items-center gap-3 px-4 py-2 rounded-full border border-white/10 bg-white/5">
+                        {/* Nullifier Shield Status */}
+                        <div className="flex items-center gap-3 px-4 py-2 border border-[#e0e0e0]/20 bg-[#0a0a0a]">
                             {isInitialized ? (
                                 <>
-                                    <Shield className="w-4 h-4 text-emerald-400" />
+                                    <Shield className="w-4 h-4 text-emerald-600/80" />
                                     <div className="flex flex-col">
-                                        <span className="text-xs text-emerald-400 font-medium tracking-wider">SHIELD ACTIVE</span>
+                                        <span className="text-xs text-emerald-600/80 font-medium tracking-wider">SHIELD ACTIVE</span>
                                         <div className="flex items-center gap-1 group/copy">
-                                            <span className="text-[10px] text-zinc-500">Burner: {burnerAddress ? truncate(burnerAddress) : 'Loading...'}</span>
+                                            <span className="text-[10px] text-[#e0e0e0]/60">Burner: {burnerAddress ? truncate(burnerAddress) : 'Loading...'}</span>
                                             {burnerAddress && (
-                                                <button onClick={handleCopy} className="text-zinc-500 hover:text-emerald-400 opacity-0 group-hover/copy:opacity-100 transition-all focus:outline-none ml-1">
-                                                    {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                                <button onClick={handleCopy} className="text-[#e0e0e0]/60 hover:text-white opacity-0 group-hover/copy:opacity-100 transition-all focus:outline-none ml-1">
+                                                    {copied ? <Check className="w-3 h-3 text-emerald-600/80" /> : <Copy className="w-3 h-3" />}
                                                 </button>
                                             )}
                                         </div>
@@ -88,10 +88,10 @@ export function Topbar() {
                                 </>
                             ) : (
                                 <>
-                                    <ShieldAlert className="w-4 h-4 text-rose-400" />
+                                    <ShieldAlert className="w-4 h-4 text-rose-600/80" />
                                     <div className="flex flex-col">
-                                        <span className="text-xs text-rose-400 font-medium tracking-wider">UNPROTECTED</span>
-                                        <span className="text-[10px] text-zinc-500">No Privacy Pool</span>
+                                        <span className="text-xs text-rose-600/80 font-medium tracking-wider">UNPROTECTED</span>
+                                        <span className="text-[10px] text-[#e0e0e0]/60">No Privacy Pool</span>
                                     </div>
                                 </>
                             )}
@@ -100,10 +100,10 @@ export function Topbar() {
                         {/* Wallet Connect */}
                         <button
                             onClick={() => isConnected ? disconnect() : connect({ connector: injected() })}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-black font-semibold hover:bg-zinc-200 transition-colors shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+                            className="flex items-center gap-2 px-5 py-2.5 border border-emerald-800/40 bg-transparent text-emerald-600/80 font-medium hover:bg-emerald-950/20 transition-colors uppercase text-sm"
                         >
                             <Wallet className="w-4 h-4" />
-                            {isConnected && address ? truncate(address) : 'Connect Wallet'}
+                            {isConnected && address ? truncate(address) : 'Connect'}
                         </button>
                     </>
                 )}

@@ -14,7 +14,6 @@ const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/deposit', label: 'Deposit to Pool', icon: Download },
     { href: '/swap', label: 'Private Swap', icon: ArrowRightLeft },
-    { href: '/lend', label: 'Private Lend', icon: Landmark },
     { href: '/sweep', label: 'Sweep Funds', icon: LogOut },
 ]
 
@@ -22,13 +21,13 @@ export function Sidebar() {
     const pathname = usePathname()
 
     return (
-        <aside className="w-64 border-r border-white/10 bg-black/40 backdrop-blur-xl h-screen fixed left-0 top-0 flex flex-col items-center py-8">
+        <aside className="w-64 border-r border-[#e0e0e0]/20 bg-[#0a0a0a] h-screen fixed left-0 top-0 flex flex-col items-center py-8">
             <div className="flex items-center gap-3 mb-12">
-                <div className="bg-emerald-500/20 p-2 rounded-xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                    <Shield className="w-6 h-6 text-emerald-400" />
+                <div className="p-2 border border-emerald-900/50 bg-[#0a0a0a]">
+                    <Shield className="w-5 h-5 text-emerald-600/80" />
                 </div>
-                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-400 tracking-wide">
-                    Unlink DeFi
+                <span className="text-xl font-bold text-white tracking-wider">
+                    Nullifier
                 </span>
             </div>
 
@@ -41,14 +40,14 @@ export function Sidebar() {
                             key={item.href}
                             href={item.href}
                             className={cn(
-                                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300",
+                                "flex items-center gap-3 px-4 py-3 border-l-2 transition-colors duration-150",
                                 isActive
-                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]"
-                                    : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                                    ? "border-[#e0e0e0] bg-[#e0e0e0]/10 text-white"
+                                    : "border-transparent text-[#e0e0e0]/60 hover:text-white hover:bg-[#e0e0e0]/5"
                             )}
                         >
-                            <Icon className={cn("w-5 h-5 transition-transform duration-300", isActive && "scale-110")} />
-                            <span className="font-medium">{item.label}</span>
+                            <Icon className="w-4 h-4" />
+                            <span className="text-sm uppercase tracking-widest">{item.label}</span>
                         </Link>
                     )
                 })}
