@@ -4,14 +4,15 @@ import { useState } from 'react'
 import { PrivacyShield } from '../../components/PrivacyShield'
 import { LogOut, RefreshCw, AlertTriangle } from 'lucide-react'
 import { useUnlink, useBurner } from '@unlink-xyz/react'
-import { useReadContract } from 'wagmi'
-import { formatUnits, erc20Abi } from 'viem'
+import { useReadContract, usePublicClient, useBalance } from 'wagmi'
+import { formatUnits, erc20Abi, parseUnits } from 'viem'
 import { TOKENS } from '../../config/tokens'
 import Link from 'next/link'
 
 export default function SweepPage() {
     const { walletExists, ready } = useUnlink()
     const { sweepToPool, burners } = useBurner()
+    const publicClient = usePublicClient()
     const isInitialized = walletExists && ready
     const burnerAddress = burners[0]?.address
     const [isSweeping, setIsSweeping] = useState(false)
@@ -41,30 +42,51 @@ export default function SweepPage() {
         query: { enabled: !!burnerAddress }
     })
 
+    const { data: monBalance, refetch: refetchMon } = useBalance({
+        address: burnerAddress as `0x${string}`,
+        query: { enabled: !!burnerAddress }
+    })
+
+    const isLowGas = monBalance !== undefined && monBalance.value < parseUnits('0.005', 18)
+
     const handleSweep = async () => {
         setIsSweeping(true)
-        setStatus("Sweeping USDTm back to Pool...")
+        setStatus("Starting sweep operation...")
 
         try {
             if (!burnerAddress) throw new Error("Burner account not found.")
 
             if (usdtBalance && (usdtBalance as bigint) > BigInt(0)) {
-                await sweepToPool.execute({ index: 0, params: { token: TOKENS.USDTm.address } })
+                setStatus("Sweeping USDTm back to Pool...")
+                const res = await sweepToPool.execute({ index: 0, params: { token: TOKENS.USDTm.address } })
+                if (publicClient && res?.txHash) {
+                    setStatus("WAITING: Confirming USDTm sweep...")
+                    await publicClient.waitForTransactionReceipt({ hash: res.txHash as `0x${string}` })
+                }
             }
 
-            setStatus("Sweeping ULNKm back to Pool...")
             if (ulnkBalance && (ulnkBalance as bigint) > BigInt(0)) {
-                await sweepToPool.execute({ index: 0, params: { token: TOKENS.ULNKm.address } })
+                setStatus("Sweeping ULNKm back to Pool...")
+                const res = await sweepToPool.execute({ index: 0, params: { token: TOKENS.ULNKm.address } })
+                if (publicClient && res?.txHash) {
+                    setStatus("WAITING: Confirming ULNKm sweep...")
+                    await publicClient.waitForTransactionReceipt({ hash: res.txHash as `0x${string}` })
+                }
             }
 
-            setStatus("Sweeping USDCm back to Pool...")
             if (usdcBalance && (usdcBalance as bigint) > BigInt(0)) {
-                await sweepToPool.execute({ index: 0, params: { token: TOKENS.USDCm.address } })
+                setStatus("Sweeping USDCm back to Pool...")
+                const res = await sweepToPool.execute({ index: 0, params: { token: TOKENS.USDCm.address } })
+                if (publicClient && res?.txHash) {
+                    setStatus("WAITING: Confirming USDCm sweep...")
+                    await publicClient.waitForTransactionReceipt({ hash: res.txHash as `0x${string}` })
+                }
             }
 
             refetchUsdt()
             refetchUlnk()
             refetchUsdc()
+            refetchMon()
 
             setStatus("Sweep complete! Funds returned to privacy pool.")
             setTimeout(() => {
@@ -108,6 +130,18 @@ export default function SweepPage() {
                     </p>
                 </div>
 
+                {isLowGas && !isSweeping && (
+                    <div className="mb-6 p-4 border border-rose-900/40 bg-rose-950/20 flex gap-3">
+                        <AlertTriangle className="w-5 h-5 text-rose-600/80 shrink-0" />
+                        <div>
+                            <p className="text-[10px] font-mono uppercase text-rose-600/80 font-bold">Low Gas Warning</p>
+                            <p className="text-[10px] font-mono uppercase text-rose-600/60">
+                                Burner has less than 0.005 MON. Sweeping multiple tokens may fail. Fund burner via Deposit page if needed.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {status && (
                     <div className={`mb-6 p-4 border text-sm font-mono uppercase text-center ${status.includes('fail') || status.includes('Error') ? 'bg-rose-950/20 text-rose-600/80 border-rose-900/40' : 'bg-emerald-900/20 text-emerald-600/80 border-emerald-900/50'} animate-in fade-in slide-in-from-top-2 duration-300`}>
                         {status}
@@ -129,6 +163,20 @@ export default function SweepPage() {
                         <div className="text-right">
                             <p className="font-mono text-lg text-white">
                                 {usdtBalance !== undefined ? Number(formatUnits(usdtBalance as bigint, TOKENS.USDTm.decimals)).toFixed(2) : '0.00'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="p-4 border border-[#e0e0e0]/20 bg-[#0a0a0a] flex items-center justify-between hover:border-[#e0e0e0]/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 flex items-center justify-center font-mono text-xs text-[#e0e0e0] bg-zinc-900">M</div>
+                            <div>
+                                <p className="font-mono text-sm uppercase text-white">Native MON (Gas)</p>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className={`font-mono text-lg ${isLowGas ? 'text-rose-600/80' : 'text-white'}`}>
+                                {monBalance !== undefined ? Number(formatUnits(monBalance.value, 18)).toFixed(4) : '0.0000'}
                             </p>
                         </div>
                     </div>
@@ -177,3 +225,4 @@ export default function SweepPage() {
         </div>
     )
 }
+
