@@ -9,30 +9,13 @@ import Link from 'next/link'
 import { parseUnits, formatUnits, encodeFunctionData, erc20Abi } from 'viem'
 import { TOKENS } from '../../config/tokens'
 
-const UNISWAP_V3_ROUTER = "0x4c4eabd5fb1d1a7234a48692551eaecff8194ca7" as const;
+const SIMPLE_SWAP_ROUTER = "0xEc3F41D198b5284bEf87e417BFc028B8407d5D83" as const;
 
-const SWAP_ROUTER_ABI = [
-    {
-        "inputs": [{
-            "components": [
-                { "internalType": "address", "name": "tokenIn", "type": "address" },
-                { "internalType": "address", "name": "tokenOut", "type": "address" },
-                { "internalType": "uint24", "name": "fee", "type": "uint24" },
-                { "internalType": "address", "name": "recipient", "type": "address" },
-                { "internalType": "uint256", "name": "deadline", "type": "uint256" },
-                { "internalType": "uint256", "name": "amountIn", "type": "uint256" },
-                { "internalType": "uint256", "name": "amountOutMinimum", "type": "uint256" },
-                { "internalType": "uint160", "name": "sqrtPriceLimitX96", "type": "uint160" }
-            ],
-            "internalType": "struct ISwapRouter.ExactInputSingleParams",
-            "name": "params",
-            "type": "tuple"
-        }],
-        "name": "exactInputSingle",
-        "outputs": [{ "internalType": "uint256", "name": "amountOut", "type": "uint256" }],
-        "stateMutability": "payable",
-        "type": "function"
-    }
+const SIMPLE_SWAP_ABI = [
+    { "inputs": [{ "name": "amountIn", "type": "uint256" }], "name": "swapAforB", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [{ "name": "amountIn", "type": "uint256" }], "name": "swapBforA", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [{ "name": "amountIn", "type": "uint256" }], "name": "quoteAforB", "outputs": [{ "name": "amountOut", "type": "uint256" }], "stateMutability": "view", "type": "function" },
+    { "inputs": [{ "name": "amountIn", "type": "uint256" }], "name": "quoteBforA", "outputs": [{ "name": "amountOut", "type": "uint256" }], "stateMutability": "view", "type": "function" }
 ] as const;
 
 export default function SwapPage() {
@@ -41,66 +24,74 @@ export default function SwapPage() {
     const isInitialized = walletExists && ready
     const burnerAddress = burners[0]?.address as `0x${string}` | undefined
 
+    const [tokenIn, setTokenIn] = useState<'USDTm' | 'USDCm'>('USDTm')
+    const tokenOut = tokenIn === 'USDTm' ? 'USDCm' : 'USDTm'
+
     const [payAmount, setPayAmount] = useState('')
     const [isSwapping, setIsSwapping] = useState(false)
     const [status, setStatus] = useState<string | null>(null)
 
     const { data: burnerBalance } = useReadContract({
-        address: TOKENS.USDTm.address as `0x${string}`,
+        address: TOKENS[tokenIn].address as `0x${string}`,
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: burnerAddress ? [burnerAddress as `0x${string}`] : undefined,
         query: { enabled: !!burnerAddress }
     })
 
+    const amountInBigInt = payAmount && !isNaN(Number(payAmount)) ? parseUnits(payAmount, TOKENS[tokenIn].decimals) : BigInt(0);
+
+    // tokenA = USDC, tokenB = USDT
+    const isAforB = tokenIn === 'USDCm';
+
+    const { data: quoteData, isLoading: isQuoteLoading, isError: isQuoteError } = useReadContract({
+        address: SIMPLE_SWAP_ROUTER,
+        abi: SIMPLE_SWAP_ABI,
+        functionName: isAforB ? 'quoteAforB' : 'quoteBforA',
+        args: [amountInBigInt],
+        query: { enabled: amountInBigInt > BigInt(0) }
+    })
+
+    const expectedOut = quoteData !== undefined ? formatUnits(quoteData as bigint, TOKENS[tokenOut].decimals) : '';
+
     const handleSwap = async () => {
         if (!burnerAddress) {
             setStatus("Error: Burner account not found.")
             return
         }
+        if (amountInBigInt === BigInt(0)) return;
 
         setIsSwapping(true)
         setStatus("Approving and swapping securely...")
 
         try {
-            const amountBigInt = parseUnits(payAmount, TOKENS.USDTm.decimals)
-
             const approveData = encodeFunctionData({
                 abi: erc20Abi,
                 functionName: 'approve',
-                args: [UNISWAP_V3_ROUTER, amountBigInt]
+                args: [SIMPLE_SWAP_ROUTER, amountInBigInt]
             })
 
             const swapData = encodeFunctionData({
-                abi: SWAP_ROUTER_ABI,
-                functionName: 'exactInputSingle',
-                args: [{
-                    tokenIn: TOKENS.USDTm.address as `0x${string}`,
-                    tokenOut: TOKENS.ULNKm.address as `0x${string}`,
-                    fee: 3000,
-                    recipient: burnerAddress,
-                    deadline: BigInt(Math.floor(Date.now() / 1000) + 1200), // 20 mins
-                    amountIn: amountBigInt,
-                    amountOutMinimum: BigInt(0),
-                    sqrtPriceLimitX96: BigInt(0)
-                }]
+                abi: SIMPLE_SWAP_ABI,
+                functionName: isAforB ? 'swapAforB' : 'swapBforA',
+                args: [amountInBigInt]
             })
 
-            setStatus("Step 1/2: Approving USDTm securely...")
+            setStatus("Step 1/2: Approving tokens securely...")
             await send.execute({
                 index: 0,
                 tx: {
-                    to: TOKENS.USDTm.address as `0x${string}`,
+                    to: TOKENS[tokenIn].address as `0x${string}`,
                     data: approveData,
                     value: BigInt(0)
                 }
             })
 
-            setStatus("Step 2/2: Executing Uniswap V3 swap...")
+            setStatus("Step 2/2: Executing SimpleSwap...")
             await send.execute({
                 index: 0,
                 tx: {
-                    to: UNISWAP_V3_ROUTER,
+                    to: SIMPLE_SWAP_ROUTER,
                     data: swapData,
                     value: BigInt(0)
                 }
@@ -158,7 +149,7 @@ export default function SwapPage() {
                     <div className="flex justify-between mb-2">
                         <span className="text-zinc-400 text-sm font-medium">You pay</span>
                         <span className="text-zinc-500 text-sm">
-                            Balance: {burnerBalance !== undefined ? Number(formatUnits(burnerBalance as bigint, TOKENS.USDTm.decimals)).toFixed(2) : '0.00'}
+                            Balance: {burnerBalance !== undefined ? Number(formatUnits(burnerBalance as bigint, TOKENS[tokenIn].decimals)).toFixed(4) : '0.0000'}
                         </span>
                     </div>
                     <div className="flex items-center gap-4">
@@ -170,14 +161,22 @@ export default function SwapPage() {
                             placeholder="0"
                         />
                         <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 transition-colors shrink-0 font-bold">
-                            <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-xs text-white">U</div>
-                            USDTm
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${tokenIn === 'USDTm' ? 'bg-emerald-500' : 'bg-blue-500'}`}>
+                                {tokenIn === 'USDTm' ? 'U' : 'C'}
+                            </div>
+                            {tokenIn}
                         </button>
                     </div>
                 </div>
 
                 {/* Swap Arrow */}
-                <div className="absolute left-1/2 -translate-x-1/2 top-[46%] -translate-y-1/2 p-2 rounded-2xl bg-zinc-900 border-4 border-black z-10 cursor-pointer hover:bg-zinc-800 transition-colors">
+                <div
+                    onClick={() => {
+                        setTokenIn(tokenOut)
+                        setPayAmount('')
+                    }}
+                    className="absolute left-1/2 -translate-x-1/2 top-[46%] -translate-y-1/2 p-2 rounded-2xl bg-zinc-900 border-4 border-black z-10 cursor-pointer hover:bg-zinc-800 transition-colors"
+                >
                     <ArrowDownUp className="w-5 h-5 text-zinc-400" />
                 </div>
 
@@ -190,20 +189,22 @@ export default function SwapPage() {
                         <input
                             type="text"
                             readOnly
-                            value={Number(payAmount) > 0 ? (Number(payAmount) * 0.00031).toFixed(5) : ''}
-                            className="bg-transparent text-4xl w-full text-zinc-500 font-mono outline-none cursor-not-allowed"
+                            value={isQuoteLoading ? 'Fetching...' : isQuoteError ? 'Error' : expectedOut}
+                            className={`bg-transparent text-4xl w-full font-mono outline-none cursor-not-allowed ${expectedOut ? 'text-white' : 'text-zinc-500'}`}
                             placeholder="0"
                         />
-                        <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors shrink-0 font-bold">
-                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs text-white">E</div>
-                            ULNKm
+                        <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800 transition-colors shrink-0 font-bold">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${tokenOut === 'USDTm' ? 'bg-emerald-500' : 'bg-blue-500'}`}>
+                                {tokenOut === 'USDTm' ? 'U' : 'C'}
+                            </div>
+                            {tokenOut}
                         </button>
                     </div>
                 </div>
 
                 <button
                     onClick={handleSwap}
-                    disabled={!isInitialized || isSwapping || !payAmount}
+                    disabled={!isInitialized || isSwapping || !payAmount || isQuoteLoading}
                     className="w-full flex justify-center items-center gap-2 px-6 py-5 rounded-2xl bg-pink-500/20 border border-pink-500/50 text-pink-400 font-bold text-lg hover:bg-pink-500/30 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(236,72,153,0.15)] disabled:shadow-none"
                 >
                     {isSwapping ? (
@@ -215,7 +216,7 @@ export default function SwapPage() {
             </div>
 
             <div className="mt-6 flex justify-between px-6 text-sm text-zinc-500">
-                <span>Routing: Unlink Burner (0) &rarr; Uniswap V3</span>
+                <span>Routing: Unlink Burner (0) &rarr; SimpleSwap</span>
                 <span>Network fee hidden</span>
             </div>
         </div>
