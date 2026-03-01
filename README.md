@@ -47,8 +47,8 @@ sequenceDiagram
     %% 4. Unshielding
     rect rgb(30, 30, 30)
     Note over Pool, User: Phase 4: Unshielding (Optional)
-    User->>Pool: 8. Withdraw to Public Wallet
-    User->>Pool: Or Withdraw to ANY external unlinked address
+    User<<-Pool: 8. Withdraw to Public Wallet
+    User<<-Pool: Or Withdraw to ANY external unlinked address
     end
 ```
 
