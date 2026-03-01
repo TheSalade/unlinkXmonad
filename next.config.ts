@@ -3,6 +3,16 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@metamask/sdk': false,
+      '@coinbase/wallet-sdk': false,
+      '@walletconnect/ethereum-provider': false,
+      'porto': false,
+      '@safe-global/safe-apps-sdk': false,
+      '@safe-global/safe-apps-provider': false,
+      '@base-org/account': false,
+    };
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
