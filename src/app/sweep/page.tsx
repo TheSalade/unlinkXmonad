@@ -3,8 +3,12 @@
 import { useState } from 'react'
 import { PrivacyShield } from '../../components/PrivacyShield'
 import { LogOut, RefreshCw, AlertTriangle } from 'lucide-react'
+import { useUnlink } from '@unlink-xyz/react'
+import Link from 'next/link'
 
 export default function SweepPage() {
+    const { walletExists, ready } = useUnlink()
+    const isInitialized = walletExists && ready
     const [isSweeping, setIsSweeping] = useState(false)
 
     const handleSweep = () => {
@@ -20,6 +24,16 @@ export default function SweepPage() {
                 <p className="text-zinc-400">End your privacy session. Return remaining assets from the burner back to the anonymous Unlink Pool.</p>
                 <PrivacyShield />
             </div>
+
+            {!isInitialized && (
+                <div className="mb-8 p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center">
+                    <h3 className="text-xl font-bold text-rose-400 mb-2">Privacy Shield Not Active</h3>
+                    <p className="text-rose-200/80 mb-6">You must initialize your in-memory burner account before sweeping funds.</p>
+                    <Link href="/connect" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-rose-500 text-white font-bold hover:bg-rose-600 transition-colors">
+                        Initialize Shield
+                    </Link>
+                </div>
+            )}
 
             <div className="p-8 rounded-[2rem] bg-zinc-900 border border-rose-500/20 shadow-[0_0_30px_rgba(244,63,94,0.05)] relative overflow-hidden group">
                 <div className="absolute -top-10 -right-10 p-4 opacity-5 group-hover:opacity-10 transition-opacity text-rose-500">
@@ -67,7 +81,7 @@ export default function SweepPage() {
 
                 <button
                     onClick={handleSweep}
-                    disabled={isSweeping}
+                    disabled={!isInitialized || isSweeping}
                     className="w-full flex justify-center items-center gap-2 px-6 py-5 rounded-2xl bg-rose-500 text-white font-bold text-lg hover:bg-rose-600 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(244,63,94,0.3)] disabled:shadow-none relative z-10"
                 >
                     {isSweeping ? (

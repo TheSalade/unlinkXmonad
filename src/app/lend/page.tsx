@@ -3,8 +3,12 @@
 import { useState } from 'react'
 import { PrivacyShield } from '../../components/PrivacyShield'
 import { Landmark, ArrowUpRight } from 'lucide-react'
+import { useUnlink } from '@unlink-xyz/react'
+import Link from 'next/link'
 
 export default function LendPage() {
+    const { walletExists, ready } = useUnlink()
+    const isInitialized = walletExists && ready
     const [supplyAmount, setSupplyAmount] = useState('')
     const [isLending, setIsLending] = useState(false)
 
@@ -21,6 +25,16 @@ export default function LendPage() {
                 <p className="text-zinc-400">Supply assets to Aave and earn yield without exposing your balance.</p>
                 <PrivacyShield />
             </div>
+
+            {!isInitialized && (
+                <div className="mb-8 p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center">
+                    <h3 className="text-xl font-bold text-rose-400 mb-2">Privacy Shield Not Active</h3>
+                    <p className="text-rose-200/80 mb-6">You must initialize your in-memory burner account before executing private lending.</p>
+                    <Link href="/connect" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-rose-500 text-white font-bold hover:bg-rose-600 transition-colors">
+                        Initialize Shield
+                    </Link>
+                </div>
+            )}
 
             <div className="p-8 rounded-[2rem] bg-zinc-900 border border-white/10 shadow-2xl">
                 <div className="flex items-center gap-4 mb-8">
@@ -63,7 +77,7 @@ export default function LendPage() {
 
                 <button
                     onClick={handleLend}
-                    disabled={isLending || !supplyAmount}
+                    disabled={!isInitialized || isLending || !supplyAmount}
                     className="w-full flex justify-center items-center gap-2 px-6 py-5 rounded-2xl bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 font-bold text-lg hover:bg-cyan-500/30 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(34,211,238,0.15)] disabled:shadow-none"
                 >
                     {isLending ? (
