@@ -1,23 +1,48 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount, useSignMessage } from 'wagmi'
 import { useUnlink, useBurner } from '@unlink-xyz/react'
 import { Shield, Key, ArrowRight } from 'lucide-react'
 import { generateMnemonic, english } from 'viem/accounts'
+import { entropyToMnemonic } from '@scure/bip39'
+import { keccak256, toBytes, slice } from 'viem'
 
 export default function ConnectPage() {
     const router = useRouter()
     const { isConnected } = useAccount()
     const { signMessageAsync } = useSignMessage()
-    const { walletExists, ready, importWallet } = useUnlink()
+    const { walletExists, ready, importWallet, createAccount } = useUnlink()
     const { createBurner } = useBurner()
 
     const isInitialized = walletExists && ready
 
     const [isGenerating, setIsGenerating] = useState(false)
     const [localMnemonic, setLocalMnemonic] = useState('')
+
+    // Try to auto-connect from local storage on refresh
+    useEffect(() => {
+        const autoConnect = async () => {
+            if (isInitialized) return
+            const savedMnemonic = localStorage.getItem('__unlink_session_mnemonic')
+            if (savedMnemonic && isConnected) {
+                setIsGenerating(true)
+                try {
+                    await importWallet(savedMnemonic)
+                    await createAccount(0)
+                    await createBurner(0)
+                    router.push('/dashboard')
+                } catch (e) {
+                    console.error("Auto-connect failed:", e)
+                    localStorage.removeItem('__unlink_session_mnemonic')
+                } finally {
+                    setIsGenerating(false)
+                }
+            }
+        }
+        autoConnect()
+    }, [isInitialized, isConnected, importWallet, createAccount, createBurner, router])
 
     const handleCreateShield = async () => {
         setIsGenerating(true)
@@ -28,19 +53,26 @@ export default function ConnectPage() {
                 return
             }
 
-            // or sign a message to make it deterministic.
-            await signMessageAsync({ message: "Welcome to Unlink Private DeFi. Sign this message to generate your in-memory privacy key." })
+            // Sign a message to make it deterministic.
+            const signature = await signMessageAsync({ message: "Welcome to Unlink Private DeFi. Sign this message to generate your in-memory privacy key." })
 
-            // In a real app we might derive from signature, for this demo we just generate a random one for safety
-            const newMnemonic = generateMnemonic(english)
+            // Hash the signature to create deterministic entropy (we need 16-32 bytes for a mnemonic)
+            const hash = keccak256(toBytes(signature))
+            // viem's entropyToMnemonic expects a Uint8Array. 16 bytes = 12 words, 32 bytes = 24 words.
+            const entropy = toBytes(slice(hash, 0, 16))
+            const newMnemonic = entropyToMnemonic(entropy, english)
 
             // Import the mnemonic into the Unlink React SDK instance
             await importWallet(newMnemonic)
+
+            // Initialize the primary privacy account (for shielded deposits)
+            await createAccount(0)
 
             // Generate the first burner account (Index 0)
             await createBurner(0)
 
             setLocalMnemonic(newMnemonic)
+            localStorage.setItem('__unlink_session_mnemonic', newMnemonic)
 
             // Navigate to dashboard after short delay
             setTimeout(() => {

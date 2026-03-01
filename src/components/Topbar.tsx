@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { useUnlink, useBurner } from '@unlink-xyz/react'
 import { Shield, ShieldAlert, Wallet } from 'lucide-react'
@@ -10,8 +10,8 @@ export function Topbar() {
     const { address, isConnected } = useAccount()
     const { connect } = useConnect()
     const { disconnect } = useDisconnect()
-    const { walletExists, ready } = useUnlink()
-    const { burners } = useBurner()
+    const { walletExists, ready, importWallet, createAccount } = useUnlink()
+    const { burners, createBurner } = useBurner()
     const [mounted, setMounted] = useState(false)
 
     useEffect(() => {
@@ -21,6 +21,35 @@ export function Topbar() {
 
     const isInitialized = walletExists && ready
     const burnerAddress = burners[0]?.address
+    const isRestoring = useRef(false)
+
+    // Auto-reconnect Unlink session from local storage on refresh
+    useEffect(() => {
+        const autoConnect = async () => {
+            if (isInitialized || isRestoring.current) return
+
+            const savedMnemonic = localStorage.getItem('__unlink_session_mnemonic')
+            if (savedMnemonic && isConnected) {
+                isRestoring.current = true
+                try {
+                    await importWallet(savedMnemonic)
+                    await createAccount(0)
+                    await createBurner(0)
+                } catch (e: any) {
+                    // If the SDK throws because the wallet is already loaded (e.g. Strict Mode double fire), ignore it
+                    if (e?.message?.includes("Wallet exists") || e?.message?.includes("already exists")) {
+                        console.log("Wallet already loaded in memory.")
+                        return
+                    }
+                    console.error("Global auto-connect failed:", e)
+                    localStorage.removeItem('__unlink_session_mnemonic')
+                } finally {
+                    isRestoring.current = false
+                }
+            }
+        }
+        autoConnect()
+    }, [isInitialized, isConnected, importWallet, createAccount, createBurner])
 
     const truncate = (str: string) => str.slice(0, 6) + '...' + str.slice(-4)
 
