@@ -17,7 +17,7 @@ export default function SweepPage() {
     const [isSweeping, setIsSweeping] = useState(false)
     const [status, setStatus] = useState<string | null>(null)
 
-    const { data: usdtBalance } = useReadContract({
+    const { data: usdtBalance, refetch: refetchUsdt } = useReadContract({
         address: TOKENS.USDTm.address as `0x${string}`,
         abi: erc20Abi,
         functionName: 'balanceOf',
@@ -25,8 +25,16 @@ export default function SweepPage() {
         query: { enabled: !!burnerAddress }
     })
 
-    const { data: ulnkBalance } = useReadContract({
+    const { data: ulnkBalance, refetch: refetchUlnk } = useReadContract({
         address: TOKENS.ULNKm.address as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: burnerAddress ? [burnerAddress as `0x${string}`] : undefined,
+        query: { enabled: !!burnerAddress }
+    })
+
+    const { data: usdcBalance, refetch: refetchUsdc } = useReadContract({
+        address: TOKENS.USDCm.address as `0x${string}`,
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: burnerAddress ? [burnerAddress as `0x${string}`] : undefined,
@@ -49,6 +57,15 @@ export default function SweepPage() {
                 await sweepToPool.execute({ index: 0, params: { token: TOKENS.ULNKm.address } })
             }
 
+            setStatus("Sweeping USDCm back to Pool...")
+            if (usdcBalance && (usdcBalance as bigint) > BigInt(0)) {
+                await sweepToPool.execute({ index: 0, params: { token: TOKENS.USDCm.address } })
+            }
+
+            refetchUsdt()
+            refetchUlnk()
+            refetchUsdc()
+
             setStatus("Sweep complete! Funds returned to privacy pool.")
             setTimeout(() => {
                 setIsSweeping(false)
@@ -69,70 +86,78 @@ export default function SweepPage() {
         <div className="max-w-2xl mx-auto">
             <div className="mb-8">
                 <h1 className="text-4xl font-bold tracking-tight mb-2">Sweep to Pool</h1>
-                <p className="text-zinc-400">End your privacy session. Return remaining assets from the burner back to the anonymous Unlink Pool.</p>
+                <p className="text-[#e0e0e0]/80">End your privacy session. Return remaining assets from the burner back to the anonymous Unlink Pool.</p>
                 <PrivacyShield />
             </div>
 
             {!isInitialized && (
-                <div className="mb-8 p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center">
-                    <h3 className="text-xl font-bold text-rose-400 mb-2">Privacy Shield Not Active</h3>
-                    <p className="text-rose-200/80 mb-6">You must initialize your in-memory burner account before sweeping funds.</p>
-                    <Link href="/connect" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-rose-500 text-white font-bold hover:bg-rose-600 transition-colors">
+                <div className="mb-8 p-6 border border-rose-900/40 text-center bg-[#0a0a0a]">
+                    <h3 className="text-sm font-mono text-rose-600/80 mb-2 uppercase">Privacy Shield Not Active</h3>
+                    <p className="text-[#e0e0e0]/60 mb-6 text-sm">You must initialize your in-memory burner account before sweeping funds.</p>
+                    <Link href="/connect" className="inline-flex items-center gap-2 px-6 py-3 border border-rose-900/40 text-rose-600/80 font-mono text-xs uppercase hover:bg-rose-950/20 transition-colors">
                         Initialize Shield
                     </Link>
                 </div>
             )}
 
-            <div className="p-8 rounded-[2rem] bg-zinc-900 border border-rose-500/20 shadow-[0_0_30px_rgba(244,63,94,0.05)] relative overflow-hidden group">
-                <div className="absolute -top-10 -right-10 p-4 opacity-5 group-hover:opacity-10 transition-opacity text-rose-500">
-                    <LogOut className="w-64 h-64" />
-                </div>
-
-                <div className="bg-rose-500/10 p-4 rounded-xl border border-rose-500/20 flex gap-3 mb-8">
-                    <AlertTriangle className="w-6 h-6 text-rose-400 shrink-0 mt-0.5" />
-                    <p className="text-sm text-rose-200/80">
+            <div className="p-8 border border-[#e0e0e0]/20 bg-[#0a0a0a] relative mt-12">
+                <div className="p-4 border border-[#e0e0e0]/20 bg-[#0a0a0a] flex gap-3 mb-8">
+                    <AlertTriangle className="w-5 h-5 text-rose-600/80 shrink-0" />
+                    <p className="text-[10px] font-mono uppercase text-[#e0e0e0]/60">
                         Sweeping deposits all remaining assets back into the unshielded pool. Once swept, you can withdraw them back to your main public identity whenever you choose.
                     </p>
                 </div>
 
                 {status && (
-                    <div className={`mb-6 p-4 rounded-xl text-center text-sm font-medium ${status.includes('fail') || status.includes('Error') ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'} animate-in fade-in slide-in-from-top-2 duration-300`}>
+                    <div className={`mb-6 p-4 border text-sm font-mono uppercase text-center ${status.includes('fail') || status.includes('Error') ? 'bg-rose-950/20 text-rose-600/80 border-rose-900/40' : 'bg-emerald-900/20 text-emerald-600/80 border-emerald-900/50'} animate-in fade-in slide-in-from-top-2 duration-300`}>
                         {status}
                     </div>
                 )}
 
-                <h3 className="text-xl font-bold mb-4">Assets in Burner (Index 0)</h3>
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#e0e0e0]/20">
+                    <h3 className="text-[#e0e0e0]/60 font-mono text-xs uppercase tracking-widest">Assets in Burner [0]</h3>
+                </div>
 
-                <div className="space-y-4 mb-8">
-                    <div className="p-4 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between">
+                <div className="space-y-2 mb-8">
+                    <div className="p-4 border border-[#e0e0e0]/20 bg-[#0a0a0a] flex items-center justify-between hover:border-[#e0e0e0]/30 transition-colors">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center font-bold">U</div>
+                            <div className="w-8 h-8 flex items-center justify-center font-mono text-xs text-emerald-600/80 bg-emerald-950/30">U</div>
                             <div>
-                                <p className="font-bold">USDTm</p>
-                                <p className="text-xs text-zinc-500">Tether USD (Testnet)</p>
+                                <p className="font-mono text-sm uppercase text-white">USDTm</p>
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="font-bold text-lg font-mono">
+                            <p className="font-mono text-lg text-white">
                                 {usdtBalance !== undefined ? Number(formatUnits(usdtBalance as bigint, TOKENS.USDTm.decimals)).toFixed(2) : '0.00'}
                             </p>
-                            <p className="text-xs text-zinc-500">USDTm</p>
                         </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between">
+                    <div className="p-4 border border-[#e0e0e0]/20 bg-[#0a0a0a] flex items-center justify-between hover:border-[#e0e0e0]/30 transition-colors">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center font-bold">W</div>
+                            <div className="w-8 h-8 flex items-center justify-center font-mono text-xs text-[#e0e0e0] bg-indigo-950/30">W</div>
                             <div>
-                                <p className="font-bold">ULNKm</p>
-                                <p className="text-xs text-zinc-500">Unlink Native Token</p>
+                                <p className="font-mono text-sm uppercase text-white">ULNKm</p>
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="font-bold text-lg font-mono">
-                                {ulnkBalance !== undefined ? Number(formatUnits(ulnkBalance as bigint, TOKENS.ULNKm.decimals)).toFixed(4) : '0.0000'}
+                            <p className="font-mono text-lg text-white">
+                                {ulnkBalance !== undefined ? Number(formatUnits(ulnkBalance as bigint, TOKENS.ULNKm.decimals)).toFixed(4) : '0.00'}
                             </p>
-                            <p className="text-xs text-zinc-500">ULNKm</p>
+                        </div>
+                    </div>
+
+                    <div className="p-4 border border-[#e0e0e0]/20 bg-[#0a0a0a] flex items-center justify-between hover:border-[#e0e0e0]/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 flex items-center justify-center font-mono text-xs text-blue-600/80 bg-blue-900/20">C</div>
+                            <div>
+                                <p className="font-mono text-sm uppercase text-white">USDCm</p>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="font-mono text-lg text-white">
+                                {usdcBalance !== undefined ? Number(formatUnits(usdcBalance as bigint, TOKENS.USDCm.decimals)).toFixed(2) : '0.00'}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -140,12 +165,12 @@ export default function SweepPage() {
                 <button
                     onClick={handleSweep}
                     disabled={!isInitialized || isSweeping}
-                    className="w-full flex justify-center items-center gap-2 px-6 py-5 rounded-2xl bg-rose-500 text-white font-bold text-lg hover:bg-rose-600 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(244,63,94,0.3)] disabled:shadow-none relative z-10"
+                    className="w-full flex justify-center items-center gap-2 px-6 py-4 bg-transparent border border-rose-900/40 text-rose-600/80 font-mono text-sm uppercase hover:bg-rose-950/20 transition-all disabled:opacity-30 disabled:hover:bg-transparent"
                 >
                     {isSweeping ? (
-                        <><RefreshCw className="w-5 h-5 animate-spin" /> Sweeping to Pool...</>
+                        <><RefreshCw className="w-4 h-4 animate-spin" /> Sweeping...</>
                     ) : (
-                        <>Sweep All Funds <LogOut className="w-5 h-5 ml-1" /></>
+                        <>Sweep All Funds <LogOut className="w-4 h-4" /></>
                     )}
                 </button>
             </div>
