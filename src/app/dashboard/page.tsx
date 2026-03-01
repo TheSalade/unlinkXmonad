@@ -6,10 +6,61 @@ import { useAccount } from 'wagmi'
 import { useUnlink, useBurner, useWithdraw, useUnlinkBalance } from '@unlink-xyz/react'
 import { PrivacyShield } from '../../components/PrivacyShield'
 import { ShieldCheck, ArrowRight, Activity, Wallet, EyeOff, LogOut, RefreshCw, ChevronDown, Copy, Check } from 'lucide-react'
-import { formatUnits, parseUnits } from 'viem'
-import { useBalance } from 'wagmi'
+import { formatUnits, parseUnits, erc20Abi } from 'viem'
+import { useBalance, useReadContract } from 'wagmi'
 
 import { TOKENS } from '../../config/tokens'
+
+function TokenBalance({ address, token, isNative = false }: { address?: string, token: any, isNative?: boolean }) {
+    // For ERC20 tokens
+    const { data: erc20Balance } = useReadContract({
+        address: token.address as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: address ? [address as `0x${string}`] : undefined,
+        query: { enabled: !!address && !isNative }
+    })
+
+    // For Native MON
+    const { data: nativeBalance } = useBalance({
+        address: address as `0x${string}`,
+        query: { enabled: !!address && isNative }
+    })
+
+    let displayAmount = '0.00'
+    if (isNative && nativeBalance) {
+        displayAmount = parseFloat(formatUnits(nativeBalance.value, nativeBalance.decimals)).toFixed(4)
+    } else if (!isNative && erc20Balance !== undefined) {
+        displayAmount = parseFloat(formatUnits(erc20Balance as bigint, token.decimals)).toFixed(2)
+    }
+
+    return (
+        <div className="flex items-center justify-between p-3 border-b border-[#e0e0e0]/20 bg-[#0a0a0a] hover:bg-[#e0e0e0]/10 transition-colors last:border-b-0">
+            <span className="text-[#e0e0e0]/60 font-mono text-xs uppercase">{token.symbol || 'MON'}</span>
+            <span className="text-white font-mono text-sm">
+                {displayAmount}
+            </span>
+        </div>
+    )
+}
+
+function PoolTokenBalance({ token, symbol }: { token: any, symbol: string }) {
+    const { balance: poolBalance } = useUnlinkBalance(token.address as `0x${string}`)
+
+    let displayAmount = '0.00'
+    if (poolBalance !== undefined && poolBalance !== null) {
+        displayAmount = parseFloat(formatUnits(poolBalance, token.decimals || 18)).toFixed(symbol === 'MON' ? 4 : 2)
+    }
+
+    return (
+        <div className="flex items-center justify-between p-3 border-b border-[#e0e0e0]/20 bg-[#0a0a0a] hover:bg-[#e0e0e0]/10 transition-colors last:border-b-0">
+            <span className="text-[#e0e0e0]/60 font-mono text-xs uppercase">{symbol}</span>
+            <span className="text-white font-mono text-sm">
+                {displayAmount}
+            </span>
+        </div>
+    )
+}
 
 export default function DashboardPage() {
     const router = useRouter()
@@ -23,12 +74,12 @@ export default function DashboardPage() {
 
     const { balance: poolBalance } = useUnlinkBalance(TOKENS[selectedToken].address as `0x${string}`)
 
-    const [balance, setBalance] = useState('0.00')
     const [withdrawStatus, setWithdrawStatus] = useState<string | null>(null)
     const [isSyncing, setIsSyncing] = useState(false)
     const [copied, setCopied] = useState(false)
 
     const burnerAddress = burners[0]?.address
+    const [recipientAddress, setRecipientAddress] = useState('')
     const isInitialized = walletExists && ready
 
     useEffect(() => {
@@ -36,11 +87,6 @@ export default function DashboardPage() {
             router.push('/connect')
         }
     }, [walletExists, ready, router])
-
-    // Fetch public wallet native balance for the UI (using wagmi)
-    const { data: mainBalanceData } = useBalance({
-        address: mainWallet,
-    })
 
     const handleSync = async () => {
         setIsSyncing(true)
@@ -55,12 +101,13 @@ export default function DashboardPage() {
 
     const handleWithdraw = async () => {
         if (!mainWallet || !poolBalance || poolBalance <= BigInt(0)) return;
-        setWithdrawStatus("Preparing unshield...")
+        const targetAddress = recipientAddress && recipientAddress.length === 42 ? recipientAddress : mainWallet;
+        setWithdrawStatus(`Withdrawing to ${targetAddress.slice(0, 6)}...`)
         try {
             await withdraw([{
                 token: TOKENS[selectedToken].address as `0x${string}`,
                 amount: poolBalance,
-                recipient: mainWallet
+                recipient: targetAddress as `0x${string}`
             }])
             setWithdrawStatus("Funds unshielded!")
             setTimeout(() => setWithdrawStatus(null), 3000)
@@ -85,100 +132,134 @@ export default function DashboardPage() {
             <div className="flex justify-between items-start">
                 <div>
                     <h1 className="text-4xl font-bold tracking-tight mb-2">Dashboard</h1>
-                    <p className="text-zinc-400">Manage your private DeFi positions and burner accounts.</p>
+                    <p className="text-[#e0e0e0]/80">Manage your private DeFi positions and burner accounts.</p>
                     <PrivacyShield />
                 </div>
                 <div className="flex flex-col items-end gap-2">
                     <button
                         onClick={handleSync}
                         disabled={isSyncing}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl transition-colors border border-emerald-500/20 disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 border border-[#e0e0e0]/30 hover:bg-[#e0e0e0]/10 text-[#e0e0e0]/80 transition-colors disabled:opacity-50 text-xs font-mono uppercase tracking-wider"
                     >
-                        <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                        <span className="font-medium text-sm">Force Resync</span>
+                        <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                        <span>Force Resync</span>
                     </button>
-                    {syncError && <span className="text-xs text-rose-400 max-w-[200px] text-right">Sync Error: {syncError}</span>}
+                    {syncError && <span className="text-xs text-white max-w-[200px] text-right">Sync Error: {syncError}</span>}
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Main Wallet Card */}
-                <div className="p-6 rounded-2xl bg-zinc-900/50 border border-white/5 backdrop-blur-md relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Wallet className="w-24 h-24" />
+                <div className="p-6 border border-[#e0e0e0]/20 bg-[#0a0a0a] relative overflow-hidden group">
+                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-[#e0e0e0]/20">
+                        <h3 className="text-[#e0e0e0]/60 font-mono text-xs uppercase tracking-widest">Public Identity</h3>
+                        <div className="w-2 h-2 bg-[#e0e0e0]/40" />
                     </div>
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="w-2 h-2 rounded-full bg-zinc-500" />
-                        <h3 className="text-zinc-400 font-medium">Public Identity</h3>
-                    </div>
-                    <p className="text-2xl font-mono text-white mb-2 tracking-tight">
+                    <p className="text-xl font-mono text-white mb-6 tracking-tight">
                         {mainWallet ? `${mainWallet.slice(0, 6)}...${mainWallet.slice(-4)}` : 'Not Connected'}
                     </p>
-                    <p className="text-sm text-zinc-500 mb-6">Visible on block explorers</p>
 
-                    <div className="flex items-center justify-between p-4 rounded-xl bg-black/40 border border-white/5">
-                        <span className="text-zinc-400">Balance</span>
-                        <span className="text-zinc-300 font-medium">
-                            {mainBalanceData ? parseFloat(formatUnits(mainBalanceData.value, mainBalanceData.decimals)).toFixed(4) : '0.00'} MON
-                        </span>
+                    <div className="flex flex-col gap-2 z-10 relative">
+                        {mainWallet ? (
+                            <>
+                                <TokenBalance address={mainWallet} token={{ symbol: 'MON', decimals: 18 }} isNative={true} />
+                                {Object.entries(TOKENS)
+                                    .filter(([symbol]) => symbol !== 'MON')
+                                    .map(([symbol, config]) => (
+                                        <TokenBalance key={config.address} address={mainWallet} token={{ ...config, symbol }} />
+                                    ))}
+                            </>
+                        ) : (
+                            <div className="p-4 rounded-xl bg-[#0a0a0a] border border-[#e0e0e0]/10 text-center text-[#e0e0e0]/60 text-sm">
+                                Connect wallet to view balances
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Privacy Pool Card */}
+                <div className="p-6 border border-[#e0e0e0]/20 bg-[#0a0a0a] relative overflow-hidden group">
+                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-[#e0e0e0]/20">
+                        <h3 className="text-blue-600/80 font-mono text-xs uppercase tracking-widest">Privacy Pool</h3>
+                        <div className="w-2 h-2 bg-blue-600/80" />
+                    </div>
+                    <p className="text-xl font-mono text-white mb-6 tracking-tight">
+                        Vault Aggregator
+                    </p>
+
+                    <div className="flex flex-col gap-2 relative z-10">
+                        {isInitialized ? (
+                            <>
+                                <PoolTokenBalance symbol="MON" token={{ address: TOKENS.MON.address, decimals: 18 }} />
+                                {Object.entries(TOKENS)
+                                    .filter(([sym]) => sym !== 'MON')
+                                    .map(([sym, config]) => (
+                                        <PoolTokenBalance key={config.address} symbol={sym} token={config} />
+                                    ))}
+                            </>
+                        ) : (
+                            <div className="p-4 rounded-xl bg-blue-900/20 border border-blue-900/40 text-center text-blue-600/80/50 text-sm">
+                                Initialize Shield to view balances
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Burner Account Card */}
-                <div className="p-6 rounded-2xl bg-emerald-900/20 border border-emerald-500/20 backdrop-blur-md relative overflow-hidden group shadow-[0_0_30px_rgba(16,185,129,0.05)]">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-emerald-500">
-                        <EyeOff className="w-24 h-24" />
+                <div className="p-6 border border-[#e0e0e0]/20 bg-[#0a0a0a] relative overflow-hidden group">
+                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-[#e0e0e0]/20">
+                        <h3 className="text-emerald-600/80 font-mono text-xs uppercase tracking-widest">Private Burner [0]</h3>
+                        <div className="w-2 h-2 bg-emerald-600/80" />
                     </div>
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <h3 className="text-emerald-400 font-medium">Private Burner (Index 0)</h3>
-                    </div>
-                    <div className="flex items-center gap-2 mb-2 group/copy">
-                        <p className="text-2xl font-mono text-white tracking-tight">
+                    <div className="flex items-center justify-between mb-6 group/copy">
+                        <p className="text-xl font-mono text-white tracking-tight">
                             {burnerAddress ? `${burnerAddress.slice(0, 6)}...${burnerAddress.slice(-4)}` : '0x...'}
                         </p>
                         {burnerAddress && (
-                            <button onClick={handleCopy} className="text-emerald-500/50 hover:text-emerald-400 opacity-0 group-hover/copy:opacity-100 transition-all focus:outline-none mb-1">
-                                {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
+                            <button onClick={handleCopy} className="text-emerald-600/80 hover:text-emerald-300 transition-colors focus:outline-none">
+                                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                             </button>
                         )}
                     </div>
-                    <p className="text-sm text-emerald-500/70 mb-6">Hidden from your main identity</p>
 
-                    <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/20">
-                        <span className="text-emerald-400/80">Available USDTm</span>
-                        <span className="text-emerald-400 font-bold text-xl">${balance}</span>
+                    <div className="flex flex-col gap-2 relative z-10">
+                        {burnerAddress ? (
+                            <>
+                                <TokenBalance address={burnerAddress} token={{ symbol: 'MON', decimals: 18 }} isNative={true} />
+                                {Object.entries(TOKENS)
+                                    .filter(([symbol]) => symbol !== 'MON')
+                                    .map(([symbol, config]) => (
+                                        <TokenBalance key={config.address} address={burnerAddress} token={{ ...config, symbol }} />
+                                    ))}
+                            </>
+                        ) : (
+                            <div className="p-4 rounded-xl bg-emerald-900/20 border border-emerald-900/50 text-center text-emerald-600/80/50 text-sm">
+                                Initialize Shield to view balances
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Unshield Action Card */}
-                <div className="p-6 rounded-2xl bg-rose-900/10 border border-rose-500/20 backdrop-blur-md relative overflow-hidden group shadow-[0_0_30px_rgba(244,63,94,0.05)] flex flex-col justify-between">
+                <div className="p-6 border border-[#e0e0e0]/20 bg-[#0a0a0a] relative overflow-hidden group flex flex-col justify-between">
                     <div>
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-rose-500">
-                            <LogOut className="w-24 h-24" />
+                        <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#e0e0e0]/20">
+                            <h3 className="text-rose-600/80 font-mono text-xs uppercase tracking-widest">Unshield Funds</h3>
+                            <div className="w-2 h-2 bg-rose-700/80/80" />
                         </div>
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-2 h-2 rounded-full bg-rose-500" />
-                            <h3 className="text-rose-400 font-medium">Unshield Funds</h3>
-                        </div>
-                        <p className="text-zinc-400 text-sm mb-6">
-                            Withdraw your available shielded assets from the private pool back to your public identity.
-                        </p>
 
-                        {/* Token Dropdown */}
-                        <div className="relative mb-4">
+                        <div className="relative mb-6">
+                            <label className="text-[#e0e0e0]/40 font-mono text-[10px] uppercase block mb-2">Select Asset</label>
                             <div
                                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                className="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between hover:border-white/20 transition-colors cursor-pointer"
+                                className="p-3 border border-[#e0e0e0]/20 bg-[#0a0a0a] flex items-center justify-between hover:border-[#e0e0e0]/30 transition-colors cursor-pointer"
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className="font-bold text-white text-sm">{selectedToken}</div>
-                                </div>
-                                <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                                <span className="font-mono text-white text-sm">{selectedToken}</span>
+                                <ChevronDown className={`w-4 h-4 text-[#e0e0e0]/40 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                             </div>
 
                             {isDropdownOpen && (
-                                <div className="absolute top-full left-0 right-0 mt-2 p-2 rounded-xl bg-zinc-900 border border-white/10 shadow-2xl z-20 flex flex-col gap-1">
+                                <div className="absolute top-full left-0 right-0 mt-1 p-1 border border-[#e0e0e0]/20 bg-[#0a0a0a] z-20 flex flex-col">
                                     {(Object.keys(TOKENS) as Array<keyof typeof TOKENS>).map((tKey) => (
                                         <div
                                             key={tKey}
@@ -186,84 +267,47 @@ export default function DashboardPage() {
                                                 setSelectedToken(tKey)
                                                 setIsDropdownOpen(false)
                                             }}
-                                            className={`p-2 rounded-lg flex items-center gap-2 cursor-pointer transition-colors ${selectedToken === tKey ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                                            className="p-2 flex items-center gap-2 cursor-pointer transition-colors hover:bg-[#e0e0e0]/20"
                                         >
-                                            <p className="font-bold text-sm text-white">{tKey}</p>
+                                            <p className="font-mono text-xs text-[#e0e0e0]/80">{tKey}</p>
                                         </div>
                                     ))}
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/5 mb-6">
-                            <span className="text-rose-400/80">Shielded Balance</span>
-                            <span className="text-rose-400 font-bold text-xl">${poolBalance ? formatUnits(poolBalance, TOKENS[selectedToken].decimals) : '0'}</span>
+                        <div className="mb-6">
+                            <label className="text-[#e0e0e0]/40 font-mono text-[10px] uppercase block mb-2">Recipient Address</label>
+                            <input
+                                type="text"
+                                placeholder={mainWallet ? `${mainWallet.slice(0, 6)}...${mainWallet.slice(-4)}` : "0x..."}
+                                value={recipientAddress}
+                                onChange={(e) => setRecipientAddress(e.target.value)}
+                                className="w-full bg-[#0a0a0a] border border-[#e0e0e0]/20 px-3 py-3 text-sm text-white font-mono placeholder:text-[#e0e0e0]/20 focus:outline-none focus:border-rose-900 transition-colors"
+                            />
                         </div>
                     </div>
 
                     <div>
                         {withdrawStatus && (
-                            <div className="mb-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs text-center font-medium animate-pulse">
-                                {withdrawStatus}
+                            <div className="mb-4 p-3 border border-rose-900/40 text-rose-600/80 text-xs font-mono uppercase flex justify-between">
+                                <span>STATUS</span>
+                                <span>{withdrawStatus}</span>
                             </div>
                         )}
                         <button
                             onClick={handleWithdraw}
                             disabled={isWithdrawing || !poolBalance || poolBalance <= BigInt(0)}
-                            className="w-full flex justify-center items-center gap-2 px-4 py-3 rounded-xl bg-rose-500/20 text-rose-400 font-bold hover:bg-rose-500/30 transition-all border border-rose-500/30 disabled:opacity-50"
+                            className="w-full flex justify-between items-center px-4 py-3 bg-transparent text-rose-600/80 hover:bg-rose-900/20 transition-all border border-rose-900/40 disabled:opacity-30 disabled:hover:bg-transparent font-mono text-sm uppercase"
                         >
-                            {isWithdrawing ? <><RefreshCw className="w-4 h-4 animate-spin" /> Unshielding...</> : <><LogOut className="w-4 h-4" /> Withdraw MAX to Public</>}
+                            <span>Unshield Max</span>
+                            <span>{poolBalance ? parseFloat(formatUnits(poolBalance, TOKENS[selectedToken].decimals)).toFixed(4) : '0.00'}</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <div className="mt-4">
-                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                    <Activity className="w-6 h-6 text-cyan-400" />
-                    Active Privacy Positions
-                </h2>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-6 rounded-2xl bg-zinc-900 border border-white/10 hover:border-cyan-500/30 transition-colors group cursor-pointer" onClick={() => router.push('/lend')}>
-                        <div className="flex justify-between items-start mb-8">
-                            <div>
-                                <h3 className="text-xl font-bold text-white mb-1">Aave v3</h3>
-                                <p className="text-zinc-400 text-sm">Supplied USDTm</p>
-                            </div>
-                            <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center">
-                                <ShieldCheck className="w-5 h-5 text-cyan-400" />
-                            </div>
-                        </div>
-                        <div className="flex items-end justify-between">
-                            <div>
-                                <p className="text-3xl font-bold text-white mb-1">$5,000.00</p>
-                                <p className="text-emerald-400 text-sm">+4.2% APY</p>
-                            </div>
-                            <ArrowRight className="w-6 h-6 text-zinc-600 group-hover:text-cyan-400 transition-colors translate-x-[-10px] group-hover:translate-x-0" />
-                        </div>
-                    </div>
-
-                    <div className="p-6 rounded-2xl bg-zinc-900 border border-white/10 hover:border-pink-500/30 transition-colors group cursor-pointer" onClick={() => router.push('/swap')}>
-                        <div className="flex justify-between items-start mb-8">
-                            <div>
-                                <h3 className="text-xl font-bold text-white mb-1">Uniswap V3</h3>
-                                <p className="text-zinc-400 text-sm">USDCm/ULNKm LP</p>
-                            </div>
-                            <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center">
-                                <ShieldCheck className="w-5 h-5 text-pink-400" />
-                            </div>
-                        </div>
-                        <div className="flex items-end justify-between">
-                            <div>
-                                <p className="text-3xl font-bold text-white mb-1">$2,450.00</p>
-                                <p className="text-emerald-400 text-sm">+12.5% APY</p>
-                            </div>
-                            <ArrowRight className="w-6 h-6 text-zinc-600 group-hover:text-pink-400 transition-colors translate-x-[-10px] group-hover:translate-x-0" />
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     )
 }
