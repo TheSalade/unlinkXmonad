@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { PrivacyShield } from '../../components/PrivacyShield'
 import { ArrowDownToLine, RefreshCw, ShieldPlus, ChevronDown } from 'lucide-react'
-import { useAccount, useReadContract, useWriteContract, useSendTransaction } from 'wagmi'
+import { useAccount, useReadContract, useWriteContract, useSendTransaction, useBalance } from 'wagmi'
 import { TOKENS } from '../../config/tokens'
 import { formatUnits, parseUnits } from 'viem'
 import { erc20Abi } from 'viem'
@@ -28,6 +28,7 @@ export default function DepositPage() {
     const [status, setStatus] = useState<string | null>(null)
 
     const tokenDetails = {
+        MON: { name: 'Monad Native Token', symbol: 'MON', color: 'bg-purple-500', text: 'text-purple-500', bgFade: 'bg-purple-500/20' },
         USDTm: { name: 'Tether USD (Testnet)', symbol: 'U', color: 'bg-emerald-500', text: 'text-emerald-500', bgFade: 'bg-emerald-500/20' },
         USDCm: { name: 'USD Coin (Testnet)', symbol: 'C', color: 'bg-blue-500', text: 'text-blue-500', bgFade: 'bg-blue-500/20' },
         ULNKm: { name: 'Unlink Native Token', symbol: 'L', color: 'bg-indigo-500', text: 'text-indigo-500', bgFade: 'bg-indigo-500/20' },
@@ -39,13 +40,25 @@ export default function DepositPage() {
 
     const { balance: fundPoolBalance } = useUnlinkBalance(TOKENS[fundSelectedToken].address as `0x${string}`)
 
-    // Fetch balance
-    const { data: balanceData, refetch: refetchBalance } = useReadContract({
+    const isNative = selectedToken === 'MON'
+
+    // Fetch ERC20 balance
+    const { data: balanceDataErc20, refetch: refetchBalanceErc20 } = useReadContract({
         address: tokenAddress,
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: address ? [address] : undefined,
+        query: { enabled: !!address && !isNative }
     });
+
+    // Fetch Native balance
+    const { data: balanceDataNative, refetch: refetchBalanceNative } = useBalance({
+        address: address,
+        query: { enabled: !!address && isNative }
+    });
+
+    const balanceData = isNative ? balanceDataNative?.value : balanceDataErc20;
+    const refetchBalance = isNative ? refetchBalanceNative : refetchBalanceErc20;
 
     // Fetch allowance
     const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
@@ -53,9 +66,10 @@ export default function DepositPage() {
         abi: erc20Abi,
         functionName: 'allowance',
         args: address ? [address, POOL_ADDRESS] : undefined,
+        query: { enabled: !!address && !isNative }
     });
 
-    const formattedBalance = balanceData ? formatUnits(balanceData, decimals) : '0.00'
+    const formattedBalance = balanceData !== undefined ? formatUnits(balanceData, decimals) : '0.00'
 
     const { deposit, isPending: isUnlinkPreparing } = useDeposit()
     const { writeContractAsync: approveAsync } = useWriteContract()
@@ -72,7 +86,7 @@ export default function DepositPage() {
             const amountBigInt = parseUnits(amount, decimals)
 
             // 1. Check & Handle Allowance
-            if (!allowanceData || allowanceData < amountBigInt) {
+            if (!isNative && (!allowanceData || allowanceData < amountBigInt)) {
                 setStatus("Approving assets...")
                 await approveAsync({
                     address: tokenAddress,

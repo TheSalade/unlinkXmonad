@@ -3,18 +3,66 @@
 import { useState } from 'react'
 import { PrivacyShield } from '../../components/PrivacyShield'
 import { LogOut, RefreshCw, AlertTriangle } from 'lucide-react'
-import { useUnlink } from '@unlink-xyz/react'
+import { useUnlink, useBurner } from '@unlink-xyz/react'
+import { useReadContract } from 'wagmi'
+import { formatUnits, erc20Abi } from 'viem'
+import { TOKENS } from '../../config/tokens'
 import Link from 'next/link'
 
 export default function SweepPage() {
     const { walletExists, ready } = useUnlink()
+    const { sweepToPool, burners } = useBurner()
     const isInitialized = walletExists && ready
+    const burnerAddress = burners[0]?.address
     const [isSweeping, setIsSweeping] = useState(false)
+    const [status, setStatus] = useState<string | null>(null)
 
-    const handleSweep = () => {
+    const { data: usdtBalance } = useReadContract({
+        address: TOKENS.USDTm.address as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: burnerAddress ? [burnerAddress as `0x${string}`] : undefined,
+        query: { enabled: !!burnerAddress }
+    })
+
+    const { data: ulnkBalance } = useReadContract({
+        address: TOKENS.ULNKm.address as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: burnerAddress ? [burnerAddress as `0x${string}`] : undefined,
+        query: { enabled: !!burnerAddress }
+    })
+
+    const handleSweep = async () => {
         setIsSweeping(true)
-        // Here we'd use await unlink.burner.sweepToPool(0, { token: TOKEN_ADDRESS })
-        setTimeout(() => setIsSweeping(false), 2500)
+        setStatus("Sweeping USDTm back to Pool...")
+
+        try {
+            if (!burnerAddress) throw new Error("Burner account not found.")
+
+            if (usdtBalance && (usdtBalance as bigint) > BigInt(0)) {
+                await sweepToPool.execute({ index: 0, params: { token: TOKENS.USDTm.address } })
+            }
+
+            setStatus("Sweeping ULNKm back to Pool...")
+            if (ulnkBalance && (ulnkBalance as bigint) > BigInt(0)) {
+                await sweepToPool.execute({ index: 0, params: { token: TOKENS.ULNKm.address } })
+            }
+
+            setStatus("Sweep complete! Funds returned to privacy pool.")
+            setTimeout(() => {
+                setIsSweeping(false)
+                setStatus(null)
+            }, 3000)
+
+        } catch (error: any) {
+            console.error("Sweep failed:", error)
+            setStatus(`Sweep failed: ${error.message || "Unknown error"}`)
+            setTimeout(() => {
+                setIsSweeping(false)
+                setStatus(null)
+            }, 5000)
+        }
     }
 
     return (
@@ -47,6 +95,12 @@ export default function SweepPage() {
                     </p>
                 </div>
 
+                {status && (
+                    <div className={`mb-6 p-4 rounded-xl text-center text-sm font-medium ${status.includes('fail') || status.includes('Error') ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'} animate-in fade-in slide-in-from-top-2 duration-300`}>
+                        {status}
+                    </div>
+                )}
+
                 <h3 className="text-xl font-bold mb-4">Assets in Burner (Index 0)</h3>
 
                 <div className="space-y-4 mb-8">
@@ -59,8 +113,10 @@ export default function SweepPage() {
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="font-bold text-lg font-mono">1,250.00</p>
-                            <p className="text-xs text-zinc-500">$1,250.00</p>
+                            <p className="font-bold text-lg font-mono">
+                                {usdtBalance !== undefined ? Number(formatUnits(usdtBalance as bigint, TOKENS.USDTm.decimals)).toFixed(2) : '0.00'}
+                            </p>
+                            <p className="text-xs text-zinc-500">USDTm</p>
                         </div>
                     </div>
 
@@ -73,8 +129,10 @@ export default function SweepPage() {
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="font-bold text-lg font-mono">0.051</p>
-                            <p className="text-xs text-zinc-500">$150.32</p>
+                            <p className="font-bold text-lg font-mono">
+                                {ulnkBalance !== undefined ? Number(formatUnits(ulnkBalance as bigint, TOKENS.ULNKm.decimals)).toFixed(4) : '0.0000'}
+                            </p>
+                            <p className="text-xs text-zinc-500">ULNKm</p>
                         </div>
                     </div>
                 </div>

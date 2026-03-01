@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import { useUnlink, useBurner, useWithdraw, useUnlinkBalance } from '@unlink-xyz/react'
 import { PrivacyShield } from '../../components/PrivacyShield'
-import { ShieldCheck, ArrowRight, Activity, Wallet, EyeOff, LogOut, RefreshCw, ChevronDown } from 'lucide-react'
+import { ShieldCheck, ArrowRight, Activity, Wallet, EyeOff, LogOut, RefreshCw, ChevronDown, Copy, Check } from 'lucide-react'
 import { formatUnits, parseUnits } from 'viem'
 import { useBalance } from 'wagmi'
 
@@ -26,6 +26,7 @@ export default function DashboardPage() {
     const [balance, setBalance] = useState('0.00')
     const [withdrawStatus, setWithdrawStatus] = useState<string | null>(null)
     const [isSyncing, setIsSyncing] = useState(false)
+    const [copied, setCopied] = useState(false)
 
     const burnerAddress = burners[0]?.address
     const isInitialized = walletExists && ready
@@ -68,6 +69,13 @@ export default function DashboardPage() {
             setWithdrawStatus(`Error: ${e.message}`)
             setTimeout(() => setWithdrawStatus(null), 4000)
         }
+    }
+
+    const handleCopy = () => {
+        if (!burnerAddress) return
+        navigator.clipboard.writeText(burnerAddress)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
     }
 
     if (!ready || !walletExists) return null
@@ -125,9 +133,16 @@ export default function DashboardPage() {
                         <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                         <h3 className="text-emerald-400 font-medium">Private Burner (Index 0)</h3>
                     </div>
-                    <p className="text-2xl font-mono text-white mb-2 tracking-tight">
-                        {burnerAddress ? `${burnerAddress.slice(0, 6)}...${burnerAddress.slice(-4)}` : '0x...'}
-                    </p>
+                    <div className="flex items-center gap-2 mb-2 group/copy">
+                        <p className="text-2xl font-mono text-white tracking-tight">
+                            {burnerAddress ? `${burnerAddress.slice(0, 6)}...${burnerAddress.slice(-4)}` : '0x...'}
+                        </p>
+                        {burnerAddress && (
+                            <button onClick={handleCopy} className="text-emerald-500/50 hover:text-emerald-400 opacity-0 group-hover/copy:opacity-100 transition-all focus:outline-none mb-1">
+                                {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
+                            </button>
+                        )}
+                    </div>
                     <p className="text-sm text-emerald-500/70 mb-6">Hidden from your main identity</p>
 
                     <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/20">

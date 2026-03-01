@@ -14,6 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
                 <UnlinkReactProvider
                     chainId={10143}
                     gatewayUrl="https://api.unlink.xyz"
+                    {...{ chainRpcUrl: "https://monad-testnet.g.alchemy.com/v2/TyMm_BC9XRvir9enYbfqR" } as any}
                     poolAddress="0x0813DA0a10328e5ed617D37e514ac2f6fA49A254"
                     prover={{ artifactSource: { version: 'v6bad364c' } }}
                     autoSync={true}

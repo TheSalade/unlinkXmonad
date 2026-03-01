@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { useUnlink, useBurner } from '@unlink-xyz/react'
-import { Shield, ShieldAlert, Wallet } from 'lucide-react'
+import { Shield, ShieldAlert, Wallet, Copy, Check } from 'lucide-react'
 import { injected } from 'wagmi/connectors'
 
 export function Topbar() {
@@ -13,6 +13,7 @@ export function Topbar() {
     const { walletExists, ready, importWallet, createAccount } = useUnlink()
     const { burners, createBurner } = useBurner()
     const [mounted, setMounted] = useState(false)
+    const [copied, setCopied] = useState(false)
 
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -53,6 +54,13 @@ export function Topbar() {
 
     const truncate = (str: string) => str.slice(0, 6) + '...' + str.slice(-4)
 
+    const handleCopy = () => {
+        if (!burnerAddress) return
+        navigator.clipboard.writeText(burnerAddress)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+    }
+
     return (
         <header className="h-20 border-b border-white/10 bg-black/20 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-50">
             <div className="flex items-center gap-6">
@@ -68,7 +76,14 @@ export function Topbar() {
                                     <Shield className="w-4 h-4 text-emerald-400" />
                                     <div className="flex flex-col">
                                         <span className="text-xs text-emerald-400 font-medium tracking-wider">SHIELD ACTIVE</span>
-                                        <span className="text-[10px] text-zinc-500">Burner: {burnerAddress ? truncate(burnerAddress) : 'Loading...'}</span>
+                                        <div className="flex items-center gap-1 group/copy">
+                                            <span className="text-[10px] text-zinc-500">Burner: {burnerAddress ? truncate(burnerAddress) : 'Loading...'}</span>
+                                            {burnerAddress && (
+                                                <button onClick={handleCopy} className="text-zinc-500 hover:text-emerald-400 opacity-0 group-hover/copy:opacity-100 transition-all focus:outline-none ml-1">
+                                                    {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </>
                             ) : (

@@ -3,20 +3,124 @@
 import { useState } from 'react'
 import { PrivacyShield } from '../../components/PrivacyShield'
 import { ArrowDownUp, Settings, Activity } from 'lucide-react'
-import { useUnlink } from '@unlink-xyz/react'
+import { useUnlink, useBurner } from '@unlink-xyz/react'
+import { useReadContract } from 'wagmi'
 import Link from 'next/link'
+import { parseUnits, formatUnits, encodeFunctionData, erc20Abi } from 'viem'
+import { TOKENS } from '../../config/tokens'
+
+const UNISWAP_V3_ROUTER = "0x4c4eabd5fb1d1a7234a48692551eaecff8194ca7" as const;
+
+const SWAP_ROUTER_ABI = [
+    {
+        "inputs": [{
+            "components": [
+                { "internalType": "address", "name": "tokenIn", "type": "address" },
+                { "internalType": "address", "name": "tokenOut", "type": "address" },
+                { "internalType": "uint24", "name": "fee", "type": "uint24" },
+                { "internalType": "address", "name": "recipient", "type": "address" },
+                { "internalType": "uint256", "name": "deadline", "type": "uint256" },
+                { "internalType": "uint256", "name": "amountIn", "type": "uint256" },
+                { "internalType": "uint256", "name": "amountOutMinimum", "type": "uint256" },
+                { "internalType": "uint160", "name": "sqrtPriceLimitX96", "type": "uint160" }
+            ],
+            "internalType": "struct ISwapRouter.ExactInputSingleParams",
+            "name": "params",
+            "type": "tuple"
+        }],
+        "name": "exactInputSingle",
+        "outputs": [{ "internalType": "uint256", "name": "amountOut", "type": "uint256" }],
+        "stateMutability": "payable",
+        "type": "function"
+    }
+] as const;
 
 export default function SwapPage() {
     const { walletExists, ready } = useUnlink()
+    const { send, burners } = useBurner()
     const isInitialized = walletExists && ready
+    const burnerAddress = burners[0]?.address as `0x${string}` | undefined
 
     const [payAmount, setPayAmount] = useState('')
     const [isSwapping, setIsSwapping] = useState(false)
+    const [status, setStatus] = useState<string | null>(null)
 
-    const handleSwap = () => {
+    const { data: burnerBalance } = useReadContract({
+        address: TOKENS.USDTm.address as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: burnerAddress ? [burnerAddress as `0x${string}`] : undefined,
+        query: { enabled: !!burnerAddress }
+    })
+
+    const handleSwap = async () => {
+        if (!burnerAddress) {
+            setStatus("Error: Burner account not found.")
+            return
+        }
+
         setIsSwapping(true)
-        // Here we'd use unlink.burner.send(0, { to: DEX_ROUTER, data: swapCalldata })
-        setTimeout(() => setIsSwapping(false), 2500)
+        setStatus("Approving and swapping securely...")
+
+        try {
+            const amountBigInt = parseUnits(payAmount, TOKENS.USDTm.decimals)
+
+            const approveData = encodeFunctionData({
+                abi: erc20Abi,
+                functionName: 'approve',
+                args: [UNISWAP_V3_ROUTER, amountBigInt]
+            })
+
+            const swapData = encodeFunctionData({
+                abi: SWAP_ROUTER_ABI,
+                functionName: 'exactInputSingle',
+                args: [{
+                    tokenIn: TOKENS.USDTm.address as `0x${string}`,
+                    tokenOut: TOKENS.ULNKm.address as `0x${string}`,
+                    fee: 3000,
+                    recipient: burnerAddress,
+                    deadline: BigInt(Math.floor(Date.now() / 1000) + 1200), // 20 mins
+                    amountIn: amountBigInt,
+                    amountOutMinimum: BigInt(0),
+                    sqrtPriceLimitX96: BigInt(0)
+                }]
+            })
+
+            setStatus("Step 1/2: Approving USDTm securely...")
+            await send.execute({
+                index: 0,
+                tx: {
+                    to: TOKENS.USDTm.address as `0x${string}`,
+                    data: approveData,
+                    value: BigInt(0)
+                }
+            })
+
+            setStatus("Step 2/2: Executing Uniswap V3 swap...")
+            await send.execute({
+                index: 0,
+                tx: {
+                    to: UNISWAP_V3_ROUTER,
+                    data: swapData,
+                    value: BigInt(0)
+                }
+            })
+
+            setStatus("Swap successful! Check dashboard.")
+            setPayAmount('')
+            setTimeout(() => {
+                setIsSwapping(false)
+                setStatus(null)
+            }, 3000)
+
+        } catch (error: any) {
+            console.error(error)
+            setStatus(`Swap failed: ${error.message || "Unknown error"}`)
+            setTimeout(() => {
+                setIsSwapping(false)
+                setStatus(null)
+            }, 5000)
+        }
     }
 
     return (
@@ -43,11 +147,19 @@ export default function SwapPage() {
                     <Settings className="w-5 h-5 text-zinc-500 hover:text-white cursor-pointer transition-colors" />
                 </div>
 
+                {status && (
+                    <div className={`mb-6 p-4 rounded-xl text-center text-sm font-medium ${status.includes('fail') || status.includes('Error') ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'} animate-in fade-in slide-in-from-top-2 duration-300`}>
+                        {status}
+                    </div>
+                )}
+
                 {/* Pay Section */}
                 <div className="p-5 rounded-3xl bg-black/40 border border-transparent hover:border-white/5 transition-colors mb-2 group">
                     <div className="flex justify-between mb-2">
                         <span className="text-zinc-400 text-sm font-medium">You pay</span>
-                        <span className="text-zinc-500 text-sm">Balance: 1,250.00</span>
+                        <span className="text-zinc-500 text-sm">
+                            Balance: {burnerBalance !== undefined ? Number(formatUnits(burnerBalance as bigint, TOKENS.USDTm.decimals)).toFixed(2) : '0.00'}
+                        </span>
                     </div>
                     <div className="flex items-center gap-4">
                         <input
